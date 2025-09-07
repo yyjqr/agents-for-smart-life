@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint disable=ungrouped-imports
+
 from __future__ import annotations
 
 import functools
@@ -73,7 +75,8 @@ def set_framework_profiler_handler(
                 logger.debug("LlamaIndex callback handler registered")
 
             if LLMFrameworkEnum.CREWAI in frameworks and not _library_instrumented["crewai"]:
-                from nat.plugins.crewai.crewai_callback_handler import CrewAIProfilerHandler
+                from nat.plugins.crewai.crewai_callback_handler import \
+                    CrewAIProfilerHandler  # pylint: disable=ungrouped-imports,line-too-long  # noqa E501
 
                 handler = CrewAIProfilerHandler()
                 handler.instrument()

@@ -36,7 +36,7 @@ class ConcreteExporter(BaseExporter):
         super().__init__(context_state)
         self.exported_events = []
 
-        def default_callback(x):
+        def default_callback(x):  # pylint: disable=W0613
             pass
 
         self.export_callback = export_callback or default_callback
@@ -70,7 +70,7 @@ class TestIsolatedAttribute:
     def test_get_from_class(self):
         """Test __get__ when called on the class."""
         attr = IsolatedAttribute(set)
-        result = attr.__get__(None, BaseExporter)
+        result = attr.__get__(None, BaseExporter)  # pylint: disable=unnecessary-dunder-call
         assert result is attr
 
     def test_get_from_instance_first_time(self):
@@ -79,7 +79,7 @@ class TestIsolatedAttribute:
         attr.__set_name__(BaseExporter, "test_attr")
 
         exporter = ConcreteExporter()
-        result = attr.__get__(exporter, BaseExporter)
+        result = attr.__get__(exporter, BaseExporter)  # pylint: disable=unnecessary-dunder-call
 
         assert isinstance(result, set)
         assert hasattr(exporter, "__test_attr_isolated")
@@ -90,8 +90,8 @@ class TestIsolatedAttribute:
         attr.__set_name__(BaseExporter, "test_attr")
 
         exporter = ConcreteExporter()
-        result1 = attr.__get__(exporter, BaseExporter)
-        result2 = attr.__get__(exporter, BaseExporter)
+        result1 = attr.__get__(exporter, BaseExporter)  # pylint: disable=unnecessary-dunder-call
+        result2 = attr.__get__(exporter, BaseExporter)  # pylint: disable=unnecessary-dunder-call
 
         assert result1 is result2
 
@@ -102,7 +102,7 @@ class TestIsolatedAttribute:
 
         exporter = ConcreteExporter()
         test_set = {1, 2, 3}
-        attr.__set__(exporter, test_set)
+        attr.__set__(exporter, test_set)  # pylint: disable=unnecessary-dunder-call
 
         assert getattr(exporter, "__test_attr_isolated") is test_set
 
@@ -113,7 +113,7 @@ class TestIsolatedAttribute:
 
         exporter = ConcreteExporter()
         # Access the attribute to create it
-        _ = attr.__get__(exporter, BaseExporter)
+        _ = attr.__get__(exporter, BaseExporter)  # pylint: disable=unnecessary-dunder-call
         assert hasattr(exporter, "__test_attr_isolated")
 
         # Reset for copy
@@ -133,7 +133,7 @@ class TestIsolatedAttribute:
         assert not hasattr(exporter, "__test_attr_isolated")
 
 
-class TestBaseExporter:
+class TestBaseExporter:  # pylint: disable=too-many-public-methods
     """Test the BaseExporter class."""
 
     @pytest.fixture
@@ -286,7 +286,7 @@ class TestBaseExporter:
         # Call the captured callback
         assert captured_callback is not None
         assert callable(captured_callback)
-        captured_callback(mock_event)
+        captured_callback(mock_event)  # pylint: disable=not-callable
 
         # Verify the event was exported
         assert mock_event in exporter.exported_events
@@ -332,12 +332,12 @@ class TestBaseExporter:
         await exporter._cleanup()
 
     async def test_wait_for_tasks_no_tasks(self, exporter):
-        """Test wait_for_tasks with no tasks."""
+        """Test _wait_for_tasks with no tasks."""
         # Should complete immediately
-        await exporter.wait_for_tasks()
+        await exporter._wait_for_tasks()
 
     async def test_wait_for_tasks_with_completing_tasks(self, exporter):
-        """Test wait_for_tasks with tasks that complete quickly."""
+        """Test _wait_for_tasks with tasks that complete quickly."""
 
         async def quick_task():
             await asyncio.sleep(0.01)
@@ -348,13 +348,13 @@ class TestBaseExporter:
         exporter._tasks.add(task1)
         exporter._tasks.add(task2)
 
-        await exporter.wait_for_tasks(timeout=1.0)
+        await exporter._wait_for_tasks(timeout=1.0)
 
         assert task1.done()
         assert task2.done()
 
     async def test_wait_for_tasks_timeout(self, exporter, caplog):
-        """Test wait_for_tasks with timeout."""
+        """Test _wait_for_tasks with timeout."""
 
         async def slow_task():
             await asyncio.sleep(10)  # Much longer than timeout
@@ -364,13 +364,13 @@ class TestBaseExporter:
 
         # Capture logs from the specific logger
         with caplog.at_level(logging.WARNING, logger="nat.observability.exporter.base_exporter"):
-            await exporter.wait_for_tasks(timeout=0.01)
+            await exporter._wait_for_tasks(timeout=0.01)
 
         assert "did not complete within" in caplog.text
         task.cancel()  # Clean up
 
     async def test_wait_for_tasks_exception(self, exporter, caplog):
-        """Test wait_for_tasks with task that raises exception."""
+        """Test _wait_for_tasks with task that raises exception."""
 
         async def failing_task():
             raise ValueError("task error")
@@ -379,7 +379,7 @@ class TestBaseExporter:
         exporter._tasks.add(task)
 
         with caplog.at_level(logging.ERROR):
-            await exporter.wait_for_tasks()
+            await exporter._wait_for_tasks()
 
         # Should log error but not re-raise
         assert task.done()
@@ -547,7 +547,7 @@ class TestBaseExporter:
 
         # Patch the logger to verify the warning is called
         with patch('nat.observability.exporter.base_exporter.logger') as mock_logger:
-            exporter.__del__()
+            exporter.__del__()  # pylint: disable=unnecessary-dunder-call
 
         # Check that warning was called with the expected message
         mock_logger.warning.assert_called()
@@ -562,7 +562,7 @@ class TestBaseExporter:
 
         # Patch the logger to verify the warning is called
         with patch('nat.observability.exporter.base_exporter.logger') as mock_logger:
-            exporter.__del__()
+            exporter.__del__()  # pylint: disable=unnecessary-dunder-call
 
         # Check that warning was called with the expected message
         mock_logger.warning.assert_called()

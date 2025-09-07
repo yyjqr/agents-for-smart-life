@@ -22,7 +22,7 @@ from nat.plugins.ragaai.mixin.ragaai_catalyst_mixin import RagaAICatalystMixin
 logger = logging.getLogger(__name__)
 
 
-class RagaAICatalystExporter(RagaAICatalystMixin, OtelSpanExporter):
+class RagaAICatalystExporter(RagaAICatalystMixin, OtelSpanExporter):  # pylint: disable=R0901
     """RagaAI Catalyst exporter for AI workflow observability.
 
     Exports OpenTelemetry-compatible traces to RagaAI Catalyst for visualization

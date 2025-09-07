@@ -20,6 +20,8 @@ from nat.data_models.dataset_handler import EvalFilterConfig
 from nat.data_models.dataset_handler import EvalFilterEntryConfig
 from nat.eval.dataset_handler.dataset_filter import DatasetFilter
 
+# pylint: disable=redefined-outer-name
+
 
 @pytest.fixture
 def sample_df():

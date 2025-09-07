@@ -26,6 +26,7 @@ from nat.data_models.function import FunctionBaseConfig
 from nat.profiler.decorators.function_tracking import track_function
 
 # flake8: noqa
+# pylint: disable=unused-import
 # Import any tools which need to be automatically registered here
 from . import categorizer
 from . import hardware_check_tool
@@ -40,6 +41,8 @@ from . import utils
 # Import custom evaluator
 from .classification_evaluator import register_classification_evaluator
 from .prompts import ALERT_TRIAGE_AGENT_PROMPT
+
+# pylint: enable=unused-import
 
 
 class AlertTriageAgentWorkflowConfig(FunctionBaseConfig, name="alert_triage_agent"):
@@ -60,8 +63,6 @@ class AlertTriageAgentWorkflowConfig(FunctionBaseConfig, name="alert_triage_agen
     benign_fallback_data_path: str | None = Field(
         default="examples/advanced_agents/alert_triage_agent/data/benign_fallback_offline_data.json",
         description="Path to the JSON file with baseline/normal system behavior data")
-    agent_prompt: str = Field(default=ALERT_TRIAGE_AGENT_PROMPT,
-                              description="The system prompt to use for the alert triage agent.")
 
 
 @register_function(config_type=AlertTriageAgentWorkflowConfig, framework_wrappers=[LLMFrameworkEnum.LANGCHAIN])
@@ -74,6 +75,7 @@ async def alert_triage_agent_workflow(config: AlertTriageAgentWorkflowConfig, bu
     from langgraph.graph import StateGraph
     from langgraph.prebuilt import ToolNode
     from langgraph.prebuilt import tools_condition
+
     if typing.TYPE_CHECKING:
         from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -93,7 +95,7 @@ async def alert_triage_agent_workflow(config: AlertTriageAgentWorkflowConfig, bu
     # Define assistant function that processes messages with the LLM
     async def ata_assistant(state: MessagesState):
         # Create system message with prompt
-        sys_msg = SystemMessage(content=config.agent_prompt)
+        sys_msg = SystemMessage(content=ALERT_TRIAGE_AGENT_PROMPT)
         # Invoke LLM with system message and conversation history
         return {"messages": [await llm_n_tools.ainvoke([sys_msg] + state["messages"])]}
 

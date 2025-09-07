@@ -57,10 +57,10 @@ def test_observable_subscribe_callbacks():
     errors = []
 
     def on_next_cb(x):
-        items.append(x)
+        items.append(x)  # pylint: disable=multiple-statements
 
     def on_err_cb(e):
-        errors.append(str(e))
+        errors.append(str(e))  # pylint: disable=multiple-statements
 
     mock.subscribe(on_next_cb, on_err_cb)
     mock.emit_value("Hello")

@@ -78,9 +78,8 @@ async def retriever_tool(config: RetrieverConfig, builder: Builder):
 
         except RetrieverError as e:
             if config.raise_errors:
-                logger.error("Retriever threw an error: %s.", e)
-                raise
-            logger.exception("Retriever threw an error: %s. Returning an empty response.", e)
+                raise e
+            logger.warning("Retriever threw an error: %s. Returning an empty response.", e)
             return RetrieverOutput(results=[])
 
     yield FunctionInfo.from_fn(

@@ -23,36 +23,14 @@ import click
 from pydantic import BaseModel
 
 from nat.tool.mcp.exceptions import MCPError
+from nat.tool.mcp.mcp_client import MCPBuilder
 from nat.utils.exception_handlers.mcp import format_mcp_error
 
 # Suppress verbose logs from mcp.client.sse and httpx
 logging.getLogger("mcp.client.sse").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-
-def validate_transport_cli_args(transport: str, command: str | None, args: str | None, env: str | None) -> bool:
-    """
-    Validate transport and parameter combinations, returning False if invalid.
-
-    Args:
-        transport: The transport type ('sse', 'stdio', or 'streamable-http')
-        command: Command for stdio transport
-        args: Arguments for stdio transport
-        env: Environment variables for stdio transport
-
-    Returns:
-        bool: True if valid, False if invalid (error message already displayed)
-    """
-    if transport == 'stdio':
-        if not command:
-            click.echo("--command is required when using stdio client type", err=True)
-            return False
-    elif transport in ['sse', 'streamable-http']:
-        if command or args or env:
-            click.echo("--command, --args, and --env are not allowed when using sse or streamable-http client type",
-                       err=True)
-            return False
-    return True
+logger = logging.getLogger(__name__)
 
 
 class MCPPingResult(BaseModel):
@@ -86,20 +64,12 @@ def format_tool(tool: Any) -> dict[str, str | None]:
     description = getattr(tool, 'description', '')
     input_schema = getattr(tool, 'input_schema', None) or getattr(tool, 'inputSchema', None)
 
-    # Normalize schema to JSON string
-    if input_schema is None:
-        return {
-            "name": name,
-            "description": description,
-            "input_schema": None,
-        }
-    elif hasattr(input_schema, "schema_json"):
-        schema_str = input_schema.schema_json(indent=2)
-    elif isinstance(input_schema, dict):
-        schema_str = json.dumps(input_schema, indent=2)
-    else:
-        # Final fallback: attempt to dump stringified version wrapped as JSON string
-        schema_str = json.dumps({"raw": str(input_schema)}, indent=2)
+    schema_str = None
+    if input_schema:
+        if hasattr(input_schema, "schema_json"):
+            schema_str = input_schema.schema_json(indent=2)
+        else:
+            schema_str = str(input_schema)
 
     return {
         "name": name,
@@ -130,8 +100,8 @@ def print_tool(tool_dict: dict[str, str | None], detail: bool = False) -> None:
         click.echo("-" * 60)
 
 
-async def list_tools_and_schemas(command, url, tool_name=None, transport='sse', args=None, env=None):
-    """List MCP tools using NAT MCPClient with structured exception handling.
+async def list_tools_and_schemas(url: str, tool_name: str | None = None) -> list[dict[str, str | None]]:
+    """List MCP tools using MCPBuilder with structured exception handling.
 
     Args:
         url (str): MCP server URL to connect to
@@ -145,35 +115,20 @@ async def list_tools_and_schemas(command, url, tool_name=None, transport='sse', 
     Raises:
         MCPError: Caught internally and logged, returns empty list instead
     """
-    from nat.tool.mcp.mcp_client_base import MCPSSEClient
-    from nat.tool.mcp.mcp_client_base import MCPStdioClient
-    from nat.tool.mcp.mcp_client_base import MCPStreamableHTTPClient
-
-    if args is None:
-        args = []
-
+    builder = MCPBuilder(url=url)
     try:
-        if transport == 'stdio':
-            client = MCPStdioClient(command=command, args=args, env=env)
-        elif transport == 'streamable-http':
-            client = MCPStreamableHTTPClient(url=url)
-        else:  # sse
-            client = MCPSSEClient(url=url)
-
-        async with client:
-            if tool_name:
-                tool = await client.get_tool(tool_name)
-                return [format_tool(tool)]
-            else:
-                tools = await client.get_tools()
-                return [format_tool(tool) for tool in tools.values()]
+        if tool_name:
+            tool = await builder.get_tool(tool_name)
+            return [format_tool(tool)]
+        tools = await builder.get_tools()
+        return [format_tool(tool) for tool in tools.values()]
     except MCPError as e:
         format_mcp_error(e, include_traceback=False)
         return []
 
 
-async def list_tools_direct(command, url, tool_name=None, transport='sse', args=None, env=None):
-    """List MCP tools using direct MCP protocol with structured exception handling.
+async def list_tools_direct(url: str, tool_name: str | None = None) -> list[dict[str, str | None]]:
+    """List MCP tools using direct MCP protocol with exception conversion.
 
     Bypasses MCPBuilder and uses raw MCP ClientSession and SSE client directly.
     Converts raw exceptions to structured MCPErrors for consistent user experience.
@@ -192,51 +147,25 @@ async def list_tools_direct(command, url, tool_name=None, transport='sse', args=
         This function handles ExceptionGroup by extracting the most relevant exception
         and converting it to MCPError for consistent error reporting.
     """
-    if args is None:
-        args = []
     from mcp import ClientSession
     from mcp.client.sse import sse_client
-    from mcp.client.stdio import StdioServerParameters
-    from mcp.client.stdio import stdio_client
-    from mcp.client.streamable_http import streamablehttp_client
 
     try:
-        if transport == 'stdio':
-
-            def get_stdio_client():
-                return stdio_client(server=StdioServerParameters(command=command, args=args, env=env))
-
-            client = get_stdio_client
-        elif transport == 'streamable-http':
-
-            def get_streamable_http_client():
-                return streamablehttp_client(url=url)
-
-            client = get_streamable_http_client
-        else:
-
-            def get_sse_client():
-                return sse_client(url=url)
-
-            client = get_sse_client
-
-        async with client() as ctx:
-            read, write = (ctx[0], ctx[1]) if isinstance(ctx, tuple) else ctx
+        async with sse_client(url=url) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 response = await session.list_tools()
 
-        tools = []
-        for tool in response.tools:
-            if tool_name:
-                if tool.name == tool_name:
-                    tools.append(format_tool(tool))
-            else:
-                tools.append(format_tool(tool))
-
-        if tool_name and not tools:
-            click.echo(f"[INFO] Tool '{tool_name}' not found.")
-        return tools
+                tools = []
+                for tool in response.tools:
+                    if tool_name:
+                        if tool.name == tool_name:
+                            return [format_tool(tool)]
+                    else:
+                        tools.append(format_tool(tool))
+                if tool_name and not tools:
+                    click.echo(f"[INFO] Tool '{tool_name}' not found.")
+                return tools
     except Exception as e:
         # Convert raw exceptions to structured MCPError for consistency
         from nat.utils.exception_handlers.mcp import convert_to_mcp_error
@@ -252,12 +181,7 @@ async def list_tools_direct(command, url, tool_name=None, transport='sse', args=
         return []
 
 
-async def ping_mcp_server(url: str,
-                          timeout: int,
-                          transport: str = 'streamable-http',
-                          command: str | None = None,
-                          args: list[str] | None = None,
-                          env: dict[str, str] | None = None) -> MCPPingResult:
+async def ping_mcp_server(url: str, timeout: int) -> MCPPingResult:
     """Ping an MCP server to check if it's responsive.
 
     Args:
@@ -269,29 +193,18 @@ async def ping_mcp_server(url: str,
     """
     from mcp.client.session import ClientSession
     from mcp.client.sse import sse_client
-    from mcp.client.stdio import StdioServerParameters
-    from mcp.client.stdio import stdio_client
-    from mcp.client.streamable_http import streamablehttp_client
 
     async def _ping_operation():
-        # Select transport
-        if transport == 'stdio':
-            stdio_args_local: list[str] = args or []
-            if not command:
-                raise RuntimeError("--command is required for stdio transport")
-            client_ctx = stdio_client(server=StdioServerParameters(command=command, args=stdio_args_local, env=env))
-        elif transport == 'sse':
-            client_ctx = sse_client(url)
-        else:  # streamable-http
-            client_ctx = streamablehttp_client(url=url)
-
-        async with client_ctx as ctx:
-            read, write = (ctx[0], ctx[1]) if isinstance(ctx, tuple) else ctx
+        async with sse_client(url) as (read, write):
             async with ClientSession(read, write) as session:
+                # Initialize the session
                 await session.initialize()
 
+                # Record start time just before ping
                 start_time = time.time()
+                # Send ping request
                 await session.send_ping()
+
                 end_time = time.time()
                 response_time_ms = round((end_time - start_time) * 1000, 2)
 
@@ -313,24 +226,12 @@ async def ping_mcp_server(url: str,
 
 @click.group(invoke_without_command=True, help="List tool names (default), or show details with --detail or --tool.")
 @click.option('--direct', is_flag=True, help='Bypass MCPBuilder and use direct MCP protocol')
-@click.option(
-    '--url',
-    default='http://localhost:9901/mcp',
-    show_default=True,
-    help='MCP server URL (e.g. http://localhost:8080/mcp for streamable-http, http://localhost:8080/sse for sse)')
-@click.option('--transport',
-              type=click.Choice(['sse', 'stdio', 'streamable-http']),
-              default='streamable-http',
-              show_default=True,
-              help='Type of client to use (default: streamable-http, backwards compatible with sse)')
-@click.option('--command', help='For stdio: The command to run (e.g. mcp-server)')
-@click.option('--args', help='For stdio: Additional arguments for the command (space-separated)')
-@click.option('--env', help='For stdio: Environment variables in KEY=VALUE format (space-separated)')
+@click.option('--url', default='http://localhost:9901/sse', show_default=True, help='MCP server URL')
 @click.option('--tool', default=None, help='Get details for a specific tool by name')
 @click.option('--detail', is_flag=True, help='Show full details for all tools')
 @click.option('--json-output', is_flag=True, help='Output tool metadata in JSON format')
 @click.pass_context
-def list_mcp(ctx, direct, url, transport, command, args, env, tool, detail, json_output):
+def list_mcp(ctx: click.Context, direct: bool, url: str, tool: str | None, detail: bool, json_output: bool) -> None:
     """List MCP tool names (default) or show detailed tool information.
 
     Use --detail for full output including descriptions and input schemas.
@@ -341,7 +242,7 @@ def list_mcp(ctx, direct, url, transport, command, args, env, tool, detail, json
     Args:
         ctx (click.Context): Click context object for command invocation
         direct (bool): Whether to bypass MCPBuilder and use direct MCP protocol
-        url (str): MCP server URL to connect to (default: http://localhost:9901/mcp)
+        url (str): MCP server URL to connect to (default: http://localhost:9901/sse)
         tool (str | None): Optional specific tool name to retrieve detailed info for
         detail (bool): Whether to show full details (description + schema) for all tools
         json_output (bool): Whether to output tool metadata in JSON format instead of text
@@ -355,85 +256,49 @@ def list_mcp(ctx, direct, url, transport, command, args, env, tool, detail, json
     """
     if ctx.invoked_subcommand is not None:
         return
-
-    if not validate_transport_cli_args(transport, command, args, env):
-        return
-
-    if transport in ['sse', 'streamable-http']:
-        if not url:
-            click.echo("[ERROR] --url is required when using sse or streamable-http client type", err=True)
-            return
-
-    stdio_args = args.split() if args else []
-    stdio_env = dict(var.split('=', 1) for var in env.split()) if env else None
-
     fetcher = list_tools_direct if direct else list_tools_and_schemas
-    tools = asyncio.run(fetcher(command, url, tool, transport, stdio_args, stdio_env))
+    tools = asyncio.run(fetcher(url, tool))
 
     if json_output:
         click.echo(json.dumps(tools, indent=2))
     elif tool:
-        for tool_dict in (tools or []):
+        for tool_dict in tools:
             print_tool(tool_dict, detail=True)
     elif detail:
-        for tool_dict in (tools or []):
+        for tool_dict in tools:
             print_tool(tool_dict, detail=True)
     else:
-        for tool_dict in (tools or []):
+        for tool_dict in tools:
             click.echo(tool_dict.get('name', 'Unknown tool'))
 
 
 @list_mcp.command()
-@click.option(
-    '--url',
-    default='http://localhost:9901/mcp',
-    show_default=True,
-    help='MCP server URL (e.g. http://localhost:8080/mcp for streamable-http, http://localhost:8080/sse for sse)')
-@click.option('--transport',
-              type=click.Choice(['sse', 'stdio', 'streamable-http']),
-              default='streamable-http',
-              show_default=True,
-              help='Type of client to use for ping')
-@click.option('--command', help='For stdio: The command to run (e.g. mcp-server)')
-@click.option('--args', help='For stdio: Additional arguments for the command (space-separated)')
-@click.option('--env', help='For stdio: Environment variables in KEY=VALUE format (space-separated)')
+@click.option('--url', default='http://localhost:9901/sse', show_default=True, help='MCP server URL')
 @click.option('--timeout', default=60, show_default=True, help='Timeout in seconds for ping request')
 @click.option('--json-output', is_flag=True, help='Output ping result in JSON format')
-def ping(url: str,
-         transport: str,
-         command: str | None,
-         args: str | None,
-         env: str | None,
-         timeout: int,
-         json_output: bool) -> None:
+def ping(url: str, timeout: int, json_output: bool) -> None:
     """Ping an MCP server to check if it's responsive.
 
     This command sends a ping request to the MCP server and measures the response time.
     It's useful for health checks and monitoring server availability.
 
     Args:
-        url (str): MCP server URL to ping (default: http://localhost:9901/mcp)
+        url (str): MCP server URL to ping (default: http://localhost:9901/sse)
         timeout (int): Timeout in seconds for the ping request (default: 60)
         json_output (bool): Whether to output the result in JSON format
 
     Examples:
         nat info mcp ping                                    # Ping default server
-        nat info mcp ping --url http://custom-server:9901/mcp # Ping custom server
+        nat info mcp ping --url http://custom-server:9901/sse # Ping custom server
         nat info mcp ping --timeout 10                      # Use 10 second timeout
         nat info mcp ping --json-output                     # Get JSON format output
     """
-    # Validate combinations similar to parent command
-    if not validate_transport_cli_args(transport, command, args, env):
-        return
-
-    stdio_args = args.split() if args else []
-    stdio_env = dict(var.split('=', 1) for var in env.split()) if env else None
-
-    result = asyncio.run(ping_mcp_server(url, timeout, transport, command, stdio_args, stdio_env))
+    result = asyncio.run(ping_mcp_server(url, timeout))
 
     if json_output:
         click.echo(result.model_dump_json(indent=2))
-    elif result.status == "healthy":
-        click.echo(f"Server at {result.url} is healthy (response time: {result.response_time_ms}ms)")
     else:
-        click.echo(f"Server at {result.url} {result.status}: {result.error}")
+        if result.status == "healthy":
+            click.echo(f"Server at {result.url} is healthy (response time: {result.response_time_ms}ms)")
+        else:
+            click.echo(f"Server at {result.url} {result.status}: {result.error}")

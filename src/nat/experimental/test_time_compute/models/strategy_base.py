@@ -17,10 +17,9 @@ from abc import ABC
 from abc import abstractmethod
 
 from nat.builder.builder import Builder
-from nat.data_models.ttc_strategy import TTCStrategyBaseConfig
-from nat.experimental.test_time_compute.models.stage_enums import PipelineTypeEnum
-from nat.experimental.test_time_compute.models.stage_enums import StageTypeEnum
 from nat.experimental.test_time_compute.models.ttc_item import TTCItem
+from nat.experimental.test_time_compute.models.stage_enums import StageTypeEnum, PipelineTypeEnum
+from nat.data_models.ttc_strategy import TTCStrategyBaseConfig
 
 
 class StrategyBase(ABC):

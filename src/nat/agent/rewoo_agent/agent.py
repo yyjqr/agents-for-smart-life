@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import json
+# pylint: disable=R0917
 import logging
 from json import JSONDecodeError
 
@@ -66,13 +67,8 @@ class ReWOOAgentGraph(BaseAgent):
                  tools: list[BaseTool],
                  use_tool_schema: bool = True,
                  callbacks: list[AsyncCallbackHandler] | None = None,
-                 detailed_logs: bool = False,
-                 log_response_max_chars: int = 1000):
-        super().__init__(llm=llm,
-                         tools=tools,
-                         callbacks=callbacks,
-                         detailed_logs=detailed_logs,
-                         log_response_max_chars=log_response_max_chars)
+                 detailed_logs: bool = False):
+        super().__init__(llm=llm, tools=tools, callbacks=callbacks, detailed_logs=detailed_logs)
 
         logger.debug(
             "%s Filling the prompt variables 'tools' and 'tool_names', using the tools provided in the config.",
@@ -100,8 +96,12 @@ class ReWOOAgentGraph(BaseAgent):
         try:
             return self.tools_dict.get(tool_name)
         except Exception as ex:
-            logger.error("%s Unable to find tool with the name %s\n%s", AGENT_LOG_PREFIX, tool_name, ex)
-            raise
+            logger.exception("%s Unable to find tool with the name %s\n%s",
+                             AGENT_LOG_PREFIX,
+                             tool_name,
+                             ex,
+                             exc_info=True)
+            raise ex
 
     @staticmethod
     def _get_current_step(state: ReWOOGraphState) -> int:
@@ -203,8 +203,8 @@ class ReWOOAgentGraph(BaseAgent):
             return {"plan": plan, "steps": steps}
 
         except Exception as ex:
-            logger.error("%s Failed to call planner_node: %s", AGENT_LOG_PREFIX, ex)
-            raise
+            logger.exception("%s Failed to call planner_node: %s", AGENT_LOG_PREFIX, ex, exc_info=True)
+            raise ex
 
     async def executor_node(self, state: ReWOOGraphState):
         try:
@@ -270,15 +270,22 @@ class ReWOOAgentGraph(BaseAgent):
                                                   RunnableConfig(callbacks=self.callbacks),
                                                   max_retries=3)
 
+            # ToolMessage only accepts str or list[str | dict] as content.
+            # Convert into list if the response is a dict.
+            if isinstance(tool_response, dict):
+                tool_response = [tool_response]
+
+            tool_response_message = ToolMessage(name=tool, tool_call_id=tool, content=tool_response)
+
             if self.detailed_logs:
                 self._log_tool_response(requested_tool.name, tool_input_parsed, str(tool_response))
 
-            intermediate_results[placeholder] = tool_response
+            intermediate_results[placeholder] = tool_response_message
             return {"intermediate_results": intermediate_results}
 
         except Exception as ex:
-            logger.error("%s Failed to call executor_node: %s", AGENT_LOG_PREFIX, ex)
-            raise
+            logger.exception("%s Failed to call executor_node: %s", AGENT_LOG_PREFIX, ex, exc_info=True)
+            raise ex
 
     async def solver_node(self, state: ReWOOGraphState):
         try:
@@ -321,8 +328,8 @@ class ReWOOAgentGraph(BaseAgent):
             return {"result": output_message}
 
         except Exception as ex:
-            logger.error("%s Failed to call solver_node: %s", AGENT_LOG_PREFIX, ex)
-            raise
+            logger.exception("%s Failed to call solver_node: %s", AGENT_LOG_PREFIX, ex, exc_info=True)
+            raise ex
 
     async def conditional_edge(self, state: ReWOOGraphState):
         try:
@@ -337,7 +344,10 @@ class ReWOOAgentGraph(BaseAgent):
             return AgentDecision.TOOL
 
         except Exception as ex:
-            logger.exception("%s Failed to determine whether agent is calling a tool: %s", AGENT_LOG_PREFIX, ex)
+            logger.exception("%s Failed to determine whether agent is calling a tool: %s",
+                             AGENT_LOG_PREFIX,
+                             ex,
+                             exc_info=True)
             logger.warning("%s Ending graph traversal", AGENT_LOG_PREFIX)
             return AgentDecision.END
 
@@ -363,8 +373,8 @@ class ReWOOAgentGraph(BaseAgent):
             return self.graph
 
         except Exception as ex:
-            logger.error("%s Failed to build ReWOO Graph: %s", AGENT_LOG_PREFIX, ex)
-            raise
+            logger.exception("%s Failed to build ReWOO Graph: %s", AGENT_LOG_PREFIX, ex, exc_info=ex)
+            raise ex
 
     async def build_graph(self):
         try:
@@ -372,8 +382,8 @@ class ReWOOAgentGraph(BaseAgent):
             logger.debug("%s ReWOO Graph built and compiled successfully", AGENT_LOG_PREFIX)
             return self.graph
         except Exception as ex:
-            logger.error("%s Failed to build ReWOO Graph: %s", AGENT_LOG_PREFIX, ex)
-            raise
+            logger.exception("%s Failed to build ReWOO Graph: %s", AGENT_LOG_PREFIX, ex, exc_info=ex)
+            raise ex
 
     @staticmethod
     def validate_planner_prompt(planner_prompt: str) -> bool:
@@ -389,7 +399,7 @@ class ReWOOAgentGraph(BaseAgent):
                 errors.append(error_message)
         if errors:
             error_text = "\n".join(errors)
-            logger.error("%s %s", AGENT_LOG_PREFIX, error_text)
+            logger.exception("%s %s", AGENT_LOG_PREFIX, error_text)
             raise ValueError(error_text)
         return True
 
@@ -400,6 +410,6 @@ class ReWOOAgentGraph(BaseAgent):
             errors.append("The solver prompt cannot be empty.")
         if errors:
             error_text = "\n".join(errors)
-            logger.error("%s %s", AGENT_LOG_PREFIX, error_text)
+            logger.exception("%s %s", AGENT_LOG_PREFIX, error_text)
             raise ValueError(error_text)
         return True

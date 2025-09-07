@@ -442,7 +442,7 @@ class CalcRunner:
                 runtime_fit=self.linear_analyzer.wf_runtime_fit  # May be None
             )
         except Exception as e:
-            logger.exception("Failed to plot concurrency vs. time metrics: %s", e)
+            logger.exception("Failed to plot concurrency vs. time metrics: %s", e, exc_info=True)
             logger.warning("Skipping plot of concurrency vs. time metrics")
 
     def write_output(self, output_dir: Path, calc_runner_output: CalcRunnerOutput):
@@ -506,10 +506,11 @@ class CalcRunner:
                 continue
             try:
                 calc_output = CalcRunnerOutput.model_validate_json(calc_runner_output_path.read_text())
-            except ValidationError:
+            except ValidationError as e:
                 logger.exception("Failed to validate calc runner output file %s. Skipping job %s.",
                                  calc_runner_output_path,
-                                 job_dir.name)
+                                 e,
+                                 exc_info=True)
                 continue
 
             # Extract sizing metrics from calc_data

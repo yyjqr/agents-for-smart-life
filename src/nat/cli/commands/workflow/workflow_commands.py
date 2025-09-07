@@ -27,37 +27,6 @@ from jinja2 import FileSystemLoader
 logger = logging.getLogger(__name__)
 
 
-def _get_nat_dependency(versioned: bool = True) -> str:
-    """
-    Get the NAT dependency string with version.
-
-    Args:
-        versioned: Whether to include the version in the dependency string
-
-    Returns:
-        str: The dependency string to use in pyproject.toml
-    """
-    # Assume the default dependency is langchain
-    dependency = "nvidia-nat[langchain]"
-
-    if not versioned:
-        logger.debug("Using unversioned NAT dependency: %s", dependency)
-        return dependency
-
-    # Get the current NAT version
-    from nat.cli.entrypoint import get_version
-    current_version = get_version()
-    if current_version == "unknown":
-        logger.warning("Could not detect NAT version, using unversioned dependency")
-        return dependency
-
-    # Extract major.minor (e.g., "1.2.3" -> "1.2")
-    major_minor = ".".join(current_version.split(".")[:2])
-    dependency += f"~={major_minor}"
-    logger.debug("Using NAT dependency: %s", dependency)
-    return dependency
-
-
 class PackageError(Exception):
     pass
 
@@ -97,7 +66,7 @@ def find_package_root(package_name: str) -> Path | None:
         try:
             info = json.loads(direct_url)
         except json.JSONDecodeError:
-            logger.exception("Malformed direct_url.json for package: %s", package_name)
+            logger.error("Malformed direct_url.json for package: %s", package_name)
             return None
 
         if not info.get("dir_info", {}).get("editable"):
@@ -161,6 +130,7 @@ def get_workflow_path_from_name(workflow_name: str):
     default="NAT function template. Please update the description.",
     help="""A description of the component being created. Will be used to populate the docstring and will describe the
          component when inspecting installed components using 'nat info component'""")
+# pylint: disable=missing-param-doc
 def create_command(workflow_name: str, install: bool, workflow_dir: str, description: str):
     """
     Create a new NAT workflow using templates.
@@ -196,17 +166,12 @@ def create_command(workflow_name: str, install: bool, workflow_dir: str, descrip
             click.echo(f"Workflow '{workflow_name}' already exists.")
             return
 
-        base_dir = new_workflow_dir / 'src' / package_name
-
-        configs_dir = base_dir / 'configs'
-        data_dir = base_dir / 'data'
-
         # Create directory structure
-        base_dir.mkdir(parents=True)
+        (new_workflow_dir / 'src' / package_name).mkdir(parents=True)
         # Create config directory
-        configs_dir.mkdir(parents=True)
-        # Create data directory
-        data_dir.mkdir(parents=True)
+        (new_workflow_dir / 'src' / package_name / 'configs').mkdir(parents=True)
+        # Create package level configs directory
+        (new_workflow_dir / 'configs').mkdir(parents=True)
 
         # Initialize Jinja2 environment
         env = Environment(loader=FileSystemLoader(str(template_dir)))
@@ -217,15 +182,13 @@ def create_command(workflow_name: str, install: bool, workflow_dir: str, descrip
         else:
             install_cmd = ['pip', 'install', '-e', str(new_workflow_dir)]
 
-        config_source = configs_dir / 'config.yml'
-
         # List of templates and their destinations
         files_to_render = {
             'pyproject.toml.j2': new_workflow_dir / 'pyproject.toml',
-            'register.py.j2': base_dir / 'register.py',
-            'workflow.py.j2': base_dir / f'{workflow_name}_function.py',
-            '__init__.py.j2': base_dir / '__init__.py',
-            'config.yml.j2': config_source,
+            'register.py.j2': new_workflow_dir / 'src' / package_name / 'register.py',
+            'workflow.py.j2': new_workflow_dir / 'src' / package_name / f'{workflow_name}_function.py',
+            '__init__.py.j2': new_workflow_dir / 'src' / package_name / '__init__.py',
+            'config.yml.j2': new_workflow_dir / 'src' / package_name / 'configs' / 'config.yml',
         }
 
         # Render templates
@@ -236,8 +199,7 @@ def create_command(workflow_name: str, install: bool, workflow_dir: str, descrip
             'package_name': package_name,
             'rel_path_to_repo_root': rel_path_to_repo_root,
             'workflow_class_name': f"{_generate_valid_classname(workflow_name)}FunctionConfig",
-            'workflow_description': description,
-            'nat_dependency': _get_nat_dependency()
+            'workflow_description': description
         }
 
         for template_name, output_path in files_to_render.items():
@@ -247,16 +209,9 @@ def create_command(workflow_name: str, install: bool, workflow_dir: str, descrip
                 f.write(content)
 
         # Create symlink for config.yml
+        config_source = new_workflow_dir / 'src' / package_name / 'configs' / 'config.yml'
         config_link = new_workflow_dir / 'configs' / 'config.yml'
         os.symlink(config_source, config_link)
-
-        # Create symlinks for config and data directories
-        config_dir_source = configs_dir
-        config_dir_link = new_workflow_dir / 'configs'
-        data_dir_source = data_dir
-        data_dir_link = new_workflow_dir / 'data'
-        os.symlink(config_dir_source, config_dir_link)
-        os.symlink(data_dir_source, data_dir_link)
 
         if install:
             # Install the new package without changing directories
@@ -271,7 +226,7 @@ def create_command(workflow_name: str, install: bool, workflow_dir: str, descrip
 
         click.echo(f"Workflow '{workflow_name}' created successfully in '{new_workflow_dir}'.")
     except Exception as e:
-        logger.exception("An error occurred while creating the workflow: %s", e)
+        logger.exception("An error occurred while creating the workflow: %s", e, exc_info=True)
         click.echo(f"An error occurred while creating the workflow: {e}")
 
 
@@ -307,7 +262,7 @@ def reinstall_command(workflow_name):
 
         click.echo(f"Workflow '{workflow_name}' reinstalled successfully.")
     except Exception as e:
-        logger.exception("An error occurred while reinstalling the workflow: %s", e)
+        logger.exception("An error occurred while reinstalling the workflow: %s", e, exc_info=True)
         click.echo(f"An error occurred while reinstalling the workflow: {e}")
 
 
@@ -354,7 +309,7 @@ def delete_command(workflow_name: str):
 
         click.echo(f"Workflow '{workflow_name}' deleted successfully.")
     except Exception as e:
-        logger.exception("An error occurred while deleting the workflow: %s", e)
+        logger.exception("An error occurred while deleting the workflow: %s", e, exc_info=True)
         click.echo(f"An error occurred while deleting the workflow: {e}")
 
 

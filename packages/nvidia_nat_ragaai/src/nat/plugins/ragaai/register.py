@@ -41,7 +41,7 @@ class CatalystTelemetryExporter(BatchConfigMixin, CollectorConfigMixin, Telemetr
 
 
 @register_telemetry_exporter(config_type=CatalystTelemetryExporter)
-async def catalyst_telemetry_exporter(config: CatalystTelemetryExporter, builder: Builder):
+async def catalyst_telemetry_exporter(config: CatalystTelemetryExporter, builder: Builder):  # pylint: disable=W0613
     """Create a Catalyst telemetry exporter."""
 
     try:

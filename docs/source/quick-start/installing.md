@@ -62,7 +62,7 @@ NVIDIA NeMo Agent toolkit is a Python library that doesn't require a GPU to run 
 
 1. Clone the NeMo Agent toolkit repository to your local machine.
     ```bash
-    git clone -b main https://github.com/NVIDIA/NeMo-Agent-Toolkit.git nemo-agent-toolkit
+    git clone -b main git@github.com:NVIDIA/NeMo-Agent-Toolkit.git nemo-agent-toolkit
     cd nemo-agent-toolkit
     ```
 
@@ -80,11 +80,11 @@ NVIDIA NeMo Agent toolkit is a Python library that doesn't require a GPU to run 
 
 1. Create a Python environment.
     ```bash
-    uv venv --python 3.13 --seed .venv
+    uv venv --python 3.12 --seed .venv
     source .venv/bin/activate
     ```
     :::{note}
-    Python 3.11 and 3.12 is also supported simply replace `3.13` with `3.11` or `3.12` in the `uv` command above.
+    Python 3.11 is also supported simply replace `3.12` with `3.11` in the `uv` command above.
     :::
 
 1. Install the NeMo Agent toolkit library.

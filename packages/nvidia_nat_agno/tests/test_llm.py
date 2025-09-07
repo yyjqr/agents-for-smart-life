@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=not-async-context-manager
+
 import os
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -46,9 +48,7 @@ class TestNimAgno:
         # Use the context manager properly
         async with nim_agno(nim_config, mock_builder) as nvidia_instance:
             # Verify that Nvidia was created with the correct parameters
-            call_args = mock_nvidia.call_args[1]
-            assert call_args["id"] == "test-model"
-            mock_nvidia.assert_called_once()
+            mock_nvidia.assert_called_once_with(id="test-model")
 
             # Verify that the returned object is the mock Nvidia instance
             assert nvidia_instance == mock_nvidia.return_value
@@ -62,11 +62,7 @@ class TestNimAgno:
         # Use the context manager properly
         async with nim_agno(nim_config, mock_builder) as nvidia_instance:
             # Verify that Nvidia was created with the correct parameters
-            call_args = mock_nvidia.call_args[1]
-            assert call_args["id"] == "test-model"
-            assert "base_url" in call_args
-            assert call_args["base_url"] == "https://test-api.nvidia.com"
-            mock_nvidia.assert_called_once()
+            mock_nvidia.assert_called_once_with(id="test-model", base_url="https://test-api.nvidia.com")
 
             # Verify that the returned object is the mock Nvidia instance
             assert nvidia_instance == mock_nvidia.return_value
@@ -75,6 +71,8 @@ class TestNimAgno:
     @patch.dict(os.environ, {"NVIDIA_API_KEY": ""}, clear=True)
     async def test_nim_agno_with_env_var(self, mock_nvidia, nim_config, mock_builder):
         """Test that nim_agno correctly handles the NVIDIA_API_KEY environment variable."""
+        # Set NVIDIA_API_KEY (not NVIDAI_API_KEY as that was incorrect)
+        # The code in nim_agno actually checks for NVIDIA_API_KEY, not NVIDAI_API_KEY
         os.environ["NVIDIA_API_KEY"] = "test-api-key"
 
         # Use the context manager properly
@@ -83,9 +81,7 @@ class TestNimAgno:
             assert os.environ.get("NVIDIA_API_KEY") == "test-api-key"
 
             # Verify that Nvidia was created with the correct parameters
-            call_args = mock_nvidia.call_args[1]
-            assert call_args["id"] == "test-model"
-            mock_nvidia.assert_called_once()
+            mock_nvidia.assert_called_once_with(id="test-model")
 
             # Verify that the returned object is the mock Nvidia instance
             assert nvidia_instance == mock_nvidia.return_value
@@ -100,9 +96,7 @@ class TestNimAgno:
             assert os.environ.get("NVIDIA_API_KEY") == "existing-key"
 
             # Verify that Nvidia was created with the correct parameters
-            call_args = mock_nvidia.call_args[1]
-            assert call_args["id"] == "test-model"
-            mock_nvidia.assert_called_once()
+            mock_nvidia.assert_called_once_with(id="test-model")
 
             # Verify that the returned object is the mock Nvidia instance
         assert nvidia_instance == mock_nvidia.return_value
@@ -114,9 +108,7 @@ class TestNimAgno:
         with patch.dict(os.environ, {}, clear=True):
             async with nim_agno(nim_config, mock_builder) as nvidia_instance:
                 # Should still create Nvidia instance even without API key
-                call_args = mock_nvidia.call_args[1]
-                assert call_args["id"] == "test-model"
-                mock_nvidia.assert_called_once()
+                mock_nvidia.assert_called_once_with(id="test-model")
                 assert nvidia_instance == mock_nvidia.return_value
 
 
@@ -141,6 +133,9 @@ class TestOpenAIAgno:
             # Verify that OpenAIChat was created with the correct parameters
             mock_openai_chat.assert_called_once()
             call_kwargs = mock_openai_chat.call_args[1]  # type: ignore[union-attr]
+
+            print("openai_config", openai_config)
+            print("call_kwargs", call_kwargs)
 
             # Check that model is set correctly (should be 'id' in agno)
             assert call_kwargs["id"] == "gpt-4"
@@ -186,10 +181,12 @@ class TestOpenAIAgno:
 
         # Check that nim_agno is registered for NIMModelConfig and LLMFrameworkEnum.AGNO
         assert (NIMModelConfig, LLMFrameworkEnum.AGNO) in mock_registry._llm_client_map
+        # pylint: disable-next=comparison-with-callable
         assert mock_registry._llm_client_map[(NIMModelConfig, LLMFrameworkEnum.AGNO)] == nim_agno
 
         # Check that openai_agno is registered for OpenAIModelConfig and LLMFrameworkEnum.AGNO
         assert (OpenAIModelConfig, LLMFrameworkEnum.AGNO) in mock_registry._llm_client_map
+        # pylint: disable-next=comparison-with-callable
         assert mock_registry._llm_client_map[(OpenAIModelConfig, LLMFrameworkEnum.AGNO)] == openai_agno
 
     @patch("agno.models.openai.OpenAIChat")

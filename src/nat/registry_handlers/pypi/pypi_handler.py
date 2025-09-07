@@ -44,12 +44,13 @@ class PypiRegistryHandler(AbstractRegistryHandler):
     https://github.com/pypiserver/pypiserver
     """
 
-    def __init__(self,
-                 endpoint: str,
-                 token: str | None = None,
-                 publish_route: str = "",
-                 pull_route: str = "",
-                 search_route: str = ""):
+    def __init__(  # pylint: disable=R0917
+            self,
+            endpoint: str,
+            token: str | None = None,
+            publish_route: str = "",
+            pull_route: str = "",
+            search_route: str = ""):
         super().__init__()
         self._endpoint = endpoint.rstrip("/")
         self._token = token
@@ -85,7 +86,7 @@ class PypiRegistryHandler(AbstractRegistryHandler):
             validated_publish_response = PublishResponse(status={
                 "status": StatusEnum.ERROR, "message": msg, "action": ActionEnum.PUBLISH
             })
-            logger.exception(validated_publish_response.status.message)
+            logger.exception(validated_publish_response.status.message, exc_info=True)
 
             yield validated_publish_response
 
@@ -125,16 +126,17 @@ class PypiRegistryHandler(AbstractRegistryHandler):
 
             versioned_packages_str = " ".join(versioned_packages)
 
-            result = subprocess.run([
-                "uv",
-                "pip",
-                "install",
-                "--prerelease=allow",
-                "--index-url",
-                f"{self._endpoint}/{self._pull_route}/",
-                versioned_packages_str
-            ],
-                                    check=True)
+            result = subprocess.run(
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--prerelease=allow",
+                    "--index-url",
+                    f"{self._endpoint}/{self._pull_route}/",
+                    versioned_packages_str
+                ],  # pylint: disable=W0631
+                check=True)
 
             result.check_returncode()
 
@@ -149,7 +151,7 @@ class PypiRegistryHandler(AbstractRegistryHandler):
             validated_pull_response = PullResponse(status={
                 "status": StatusEnum.ERROR, "message": msg, "action": ActionEnum.PULL
             })
-            logger.exception(validated_pull_response.status.message)
+            logger.exception(validated_pull_response.status.message, exc_info=True)
 
             yield validated_pull_response
 
@@ -169,10 +171,11 @@ class PypiRegistryHandler(AbstractRegistryHandler):
         """
 
         try:
-            completed_process = subprocess.run(["pip", "search", "--index", f"{self._endpoint}", query.query],
-                                               text=True,
-                                               capture_output=True,
-                                               check=True)
+            completed_process = subprocess.run(
+                ["pip", "search", "--index", f"{self._endpoint}", query.query],  # pylint: disable=W0631
+                text=True,
+                capture_output=True,
+                check=True)
             search_response_list = []
             search_results = completed_process.stdout
             package_results = search_results.split("\n")
@@ -212,7 +215,7 @@ class PypiRegistryHandler(AbstractRegistryHandler):
 
         except Exception as e:
             msg = f"Error searching for artifacts: {e}"
-            logger.exception(msg)
+            logger.exception(msg, exc_info=True)
             validated_search_response = SearchResponse(params=query,
                                                        status={
                                                            "status": StatusEnum.ERROR,

@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=redefined-outer-name  # pytest fixtures
+
 import asyncio
 import gc
 import logging
@@ -480,7 +482,7 @@ class TestExporterManagerLifecycle:
             async def start(self):
                 self._ready_event.set()
                 raise RuntimeError("Test exception")
-                yield  # Needed for proper async context manager
+                yield  # Needed for proper async context manager  # pylint: disable=unreachable
 
         failing_exporter = FailingExporter("failing")
         exporter_manager.add_exporter("failing", failing_exporter)
@@ -1059,14 +1061,14 @@ class TestExporterManagerPreStartHook:
 
 
 class TestWaitForTasksExplicitly:
-    """Test wait_for_tasks method explicitly."""
+    """Test _wait_for_tasks method explicitly."""
 
     async def test_wait_for_tasks_timeout_behavior(self):
-        """Test that wait_for_tasks handles timeouts properly."""
+        """Test that _wait_for_tasks handles timeouts properly."""
 
         class SlowTaskExporter(MockExporter):
 
-            async def wait_for_tasks(self, timeout: float = 5.0):
+            async def _wait_for_tasks(self, timeout: float = 5.0):
                 # Create a slow task and add it to _tasks
                 async def slow_task():
                     await asyncio.sleep(timeout + 1)  # Slower than timeout
@@ -1075,7 +1077,7 @@ class TestWaitForTasksExplicitly:
                 self._tasks.add(task)
 
                 # Call parent method which should timeout
-                await super().wait_for_tasks(timeout=0.1)  # Very short timeout
+                await super()._wait_for_tasks(timeout=0.1)  # Very short timeout
 
                 # Clean up the task
                 task.cancel()
@@ -1087,4 +1089,4 @@ class TestWaitForTasksExplicitly:
         exporter = SlowTaskExporter()
 
         # This should complete without hanging despite the slow task
-        await exporter.wait_for_tasks(timeout=0.1)
+        await exporter._wait_for_tasks(timeout=0.1)

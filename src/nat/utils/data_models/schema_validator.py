@@ -21,7 +21,7 @@ from ..exception_handlers.schemas import yaml_exception_handler
 
 
 @schema_exception_handler
-def validate_schema(metadata, Schema):
+def validate_schema(metadata, Schema):  # pylint: disable=invalid-name
 
     try:
         return Schema(**metadata)
@@ -31,7 +31,7 @@ def validate_schema(metadata, Schema):
 
 
 @yaml_exception_handler
-def validate_yaml(ctx, param, value):
+def validate_yaml(ctx, param, value):  # pylint: disable=unused-argument
     """
     Validate that the file is a valid YAML file
 

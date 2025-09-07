@@ -98,9 +98,9 @@ async def generate_streaming_response(payload: typing.Any,
                     yield item
                 else:
                     yield ResponsePayloadOutput(payload=item)
-        except Exception:
+        except Exception as e:
             # Handle exceptions here
-            raise
+            raise e
         finally:
             await q.close()
 
@@ -165,9 +165,9 @@ async def generate_streaming_response_full(payload: typing.Any,
                         yield item
                 else:
                     yield ResponsePayloadOutput(payload=item)
-        except Exception:
+        except Exception as e:
             # Handle exceptions here
-            raise
+            raise e
         finally:
             await q.close()
 

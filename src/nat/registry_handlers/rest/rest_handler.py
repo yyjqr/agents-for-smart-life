@@ -42,14 +42,15 @@ logger = logging.getLogger(__name__)
 class RestRegistryHandler(AbstractRegistryHandler):
     """A registry handler for interactions with a remote REST registry."""
 
-    def __init__(self,
-                 endpoint: str,
-                 token: str,
-                 timeout: int = 30,
-                 publish_route: str = "",
-                 pull_route: str = "",
-                 search_route: str = "",
-                 remove_route: str = ""):
+    def __init__(  # pylint: disable=R0917
+            self,
+            endpoint: str,
+            token: str,
+            timeout: int = 30,
+            publish_route: str = "",
+            pull_route: str = "",
+            search_route: str = "",
+            remove_route: str = ""):
         super().__init__()
         self._endpoint = endpoint.rstrip("/")
         self._timeout = timeout
@@ -88,7 +89,7 @@ class RestRegistryHandler(AbstractRegistryHandler):
             validated_publish_response = PublishResponse(status={
                 "status": StatusEnum.ERROR, "message": msg, "action": ActionEnum.PUBLISH
             })
-            logger.exception(validated_publish_response.status.message)
+            logger.exception(validated_publish_response.status.message, exc_info=True)
 
             yield validated_publish_response
 
@@ -155,7 +156,7 @@ class RestRegistryHandler(AbstractRegistryHandler):
             validated_pull_response = PullResponse(status={
                 "status": StatusEnum.ERROR, "message": msg, "action": ActionEnum.PULL
             })
-            logger.exception(validated_pull_response.status.message)
+            logger.exception(validated_pull_response.status.message, exc_info=True)
 
             yield validated_pull_response
 
@@ -193,7 +194,7 @@ class RestRegistryHandler(AbstractRegistryHandler):
                                                            "message": msg,
                                                            "action": ActionEnum.SEARCH
                                                        })
-            logger.exception(validated_search_response.status.message)
+            logger.exception(validated_search_response.status.message, exc_info=True)
 
             yield validated_search_response
 
@@ -228,7 +229,7 @@ class RestRegistryHandler(AbstractRegistryHandler):
             validated_remove_response = RemoveResponse(status={
                 "status": StatusEnum.ERROR, "message": msg, "action": ActionEnum.REMOVE
             })
-            logger.exception(validated_remove_response.status.message)
+            logger.exception(validated_remove_response.status.message, exc_info=True)
 
             yield validated_remove_response
 

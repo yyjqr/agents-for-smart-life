@@ -72,8 +72,9 @@ class EnvConfigValue(ABC):
                     f"{message} Try passing a value to the constructor, or setting the `{self.__class__._ENV_KEY}` "
                     "environment variable.")
 
-        elif not self.__class__._ALLOW_NONE and value is None:
-            raise ValueError("value must not be none")
+        else:
+            if not self.__class__._ALLOW_NONE and value is None:
+                raise ValueError("value must not be none")
 
         assert isinstance(value, str) or value is None
 

@@ -15,9 +15,7 @@
 
 # forecasting/models/base_model.py
 
-from abc import ABC
-from abc import abstractmethod
-
+from abc import ABC, abstractmethod
 import numpy as np
 
 

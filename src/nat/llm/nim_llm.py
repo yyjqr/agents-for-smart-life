@@ -23,12 +23,9 @@ from nat.builder.llm import LLMProviderInfo
 from nat.cli.register_workflow import register_llm_provider
 from nat.data_models.llm import LLMBaseConfig
 from nat.data_models.retry_mixin import RetryMixin
-from nat.data_models.temperature_mixin import TemperatureMixin
-from nat.data_models.thinking_mixin import ThinkingMixin
-from nat.data_models.top_p_mixin import TopPMixin
 
 
-class NIMModelConfig(LLMBaseConfig, RetryMixin, TemperatureMixin, TopPMixin, ThinkingMixin, name="nim"):
+class NIMModelConfig(LLMBaseConfig, RetryMixin, name="nim"):
     """An NVIDIA Inference Microservice (NIM) llm provider to be used with an LLM client."""
 
     model_config = ConfigDict(protected_namespaces=())
@@ -38,10 +35,12 @@ class NIMModelConfig(LLMBaseConfig, RetryMixin, TemperatureMixin, TopPMixin, Thi
     model_name: str = Field(validation_alias=AliasChoices("model_name", "model"),
                             serialization_alias="model",
                             description="The model name for the hosted NIM.")
+    temperature: float = Field(default=0.0, description="Sampling temperature in [0, 1].")
+    top_p: float = Field(default=1.0, description="Top-p for distribution sampling.")
     max_tokens: PositiveInt = Field(default=300, description="Maximum number of tokens to generate.")
 
 
 @register_llm_provider(config_type=NIMModelConfig)
-async def nim_model(llm_config: NIMModelConfig, _builder: Builder):
+async def nim_model(llm_config: NIMModelConfig, builder: Builder):
 
     yield LLMProviderInfo(config=llm_config, description="A NIM model for use with an LLM client.")

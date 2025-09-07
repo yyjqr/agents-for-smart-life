@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import pytest
-
 from nat_alert_triage_agent.categorizer import _extract_markdown_heading_level
 
 

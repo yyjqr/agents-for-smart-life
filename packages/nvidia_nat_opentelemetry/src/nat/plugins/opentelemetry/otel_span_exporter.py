@@ -18,6 +18,8 @@ from abc import abstractmethod
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version
 
+from opentelemetry.sdk.resources import Resource
+
 from nat.builder.context import ContextState
 from nat.data_models.span import Span
 from nat.observability.exporter.span_exporter import SpanExporter
@@ -25,7 +27,6 @@ from nat.observability.processor.batching_processor import BatchingProcessor
 from nat.observability.processor.processor import Processor
 from nat.plugins.opentelemetry.otel_span import OtelSpan
 from nat.plugins.opentelemetry.span_converter import convert_span_to_otel
-from opentelemetry.sdk.resources import Resource
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class OtelSpanBatchProcessor(BatchingProcessor[OtelSpan]):
     pass
 
 
-class OtelSpanExporter(SpanExporter[Span, OtelSpan]):
+class OtelSpanExporter(SpanExporter[Span, OtelSpan]):  # pylint: disable=R0901
     """Abstract base class for OpenTelemetry exporters.
 
     This class provides a specialized implementation for OpenTelemetry exporters.

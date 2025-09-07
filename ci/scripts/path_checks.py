@@ -22,9 +22,6 @@ from dataclasses import dataclass
 
 from gitutils import all_files
 
-# Allow empty comments in this file, this allows for in-line comments to apply to a section.
-# ruff: noqa: PLR2044
-
 # File path pairs to allowlist -- first is the file path, second is the path in the file
 ALLOWLISTED_FILE_PATH_PAIRS: set[tuple[str, str]] = {
     # allow references to data from configs
@@ -81,17 +78,8 @@ ALLOWLISTED_FILE_PATH_PAIRS: set[tuple[str, str]] = {
         r"^examples/getting_started/simple_calculator/data/simple_calculator.json",
     ),
     (
-        r"^examples/notebooks/launchables/GPU_Cluster_Sizing_with_NeMo_Agent_Toolkit.ipynb",
-        r"^examples/evaluation_and_profiling/simple_calculator_eval/configs/config-sizing-calc.yml",
-    ),
-    (
         r"^docs/source/",
         r"^docs/source/_static",
-    ),
-    # allow MCP server references in documentation
-    (
-        r"^docs/source/workflows/mcp/.*\.md$",
-        r"^ghcr\.io/github/github-mcp-server",
     ),
 }
 
@@ -148,7 +136,6 @@ ALLOWLISTED_WORDS: set[str] = {
     "(application|text|image|video|audio|model|dataset|token|other)/.*",  #
     # Time zones
     "[A-Z][a-z]+(_[A-Z][a-z]+)*/[A-Z][a-z]+(_[A-Z][a-z]+)*",
-    "ghcr\\.io/.*",  # Container registry references
 }
 
 IGNORED_FILE_PATH_PAIRS: set[tuple[str, str]] = {
@@ -301,9 +288,10 @@ def extract_paths_from_file(filename: str) -> list[PathInfo]:
                     # ensure that we don't push a single-line block
                     if "```" not in block_type:
                         section.append(block_type)
-                # if it's empty, then we're done with the section
-                elif section:
-                    section.pop()
+                else:
+                    # if it's empty, then we're done with the section
+                    if section:
+                        section.pop()
 
             if filename.endswith("yml") or filename.endswith("yaml") or (section and section[-1] in ["yml", "yaml"]):
                 if any((key in line) for key in YAML_WHITELISTED_KEYS):

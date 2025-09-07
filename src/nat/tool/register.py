@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=unused-import
 # flake8: noqa
 
 # Import any tools which need to be automatically registered here
@@ -31,7 +32,6 @@ from .github_tools import get_github_file
 from .github_tools import get_github_issue
 from .github_tools import get_github_pr
 from .github_tools import update_github_issue
-from .mcp import mcp_client_impl
 from .mcp import mcp_tool
 from .memory_tools import add_memory_tool
 from .memory_tools import delete_memory_tool

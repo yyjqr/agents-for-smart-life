@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=unused-import
 # flake8: noqa
 # isort:skip_file
 
 # Import any providers which need to be automatically registered here
 from . import aws_bedrock_llm
-from . import azure_openai_llm
 from . import nim_llm
 from . import openai_llm

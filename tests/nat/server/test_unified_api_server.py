@@ -306,7 +306,6 @@ async def client_fixture(config):
 
 
 @pytest.mark.e2e
-@pytest.mark.usefixtures("nvidia_api_key")
 async def test_generate_endpoint(client: httpx.AsyncClient, config: Config):
     """Tests generate endpoint to verify it responds successfully."""
     input_message = {"input_message": f"{config.app.input}"}
@@ -315,7 +314,6 @@ async def test_generate_endpoint(client: httpx.AsyncClient, config: Config):
 
 
 @pytest.mark.e2e
-@pytest.mark.usefixtures("nvidia_api_key")
 async def test_generate_stream_endpoint(client: httpx.AsyncClient, config: Config):
     """Tests generate stream endpoint to verify it responds successfully."""
     input_message = {"input_message": f"{config.app.input}"}
@@ -324,7 +322,6 @@ async def test_generate_stream_endpoint(client: httpx.AsyncClient, config: Confi
 
 
 @pytest.mark.e2e
-@pytest.mark.usefixtures("nvidia_api_key")
 async def test_chat_endpoint(client: httpx.AsyncClient, config: Config):
     """Tests chat endpoint to verify it responds successfully."""
     input_message = {"messages": [{"role": "user", "content": f"{config.app.input}"}], "use_knowledge_base": True}
@@ -335,7 +332,6 @@ async def test_chat_endpoint(client: httpx.AsyncClient, config: Config):
 
 
 @pytest.mark.e2e
-@pytest.mark.usefixtures("nvidia_api_key")
 async def test_chat_stream_endpoint(client: httpx.AsyncClient, config: Config):
     """Tests chat stream endpoint to verify it responds successfully."""
     input_message = {"messages": [{"role": "user", "content": f"{config.app.input}"}], "use_knowledge_base": True}
@@ -350,7 +346,6 @@ async def test_chat_stream_endpoint(client: httpx.AsyncClient, config: Config):
 
 
 @pytest.mark.e2e
-@pytest.mark.usefixtures("nvidia_api_key")
 async def test_user_attributes_from_http_request(client: httpx.AsyncClient, config: Config):
     """Tests setting user attributes from HTTP request."""
     input_message = {"input_message": f"{config.app.input}"}

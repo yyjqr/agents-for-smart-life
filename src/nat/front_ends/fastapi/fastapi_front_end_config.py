@@ -14,8 +14,6 @@
 # limitations under the License.
 
 import logging
-import os
-import sys
 import typing
 from datetime import datetime
 from pathlib import Path
@@ -31,20 +29,6 @@ from nat.data_models.step_adaptor import StepAdaptorConfig
 logger = logging.getLogger(__name__)
 
 YAML_EXTENSIONS = (".yaml", ".yml")
-
-
-def _is_reserved(path: Path) -> bool:
-    """
-    Check if a path is reserved in the current Python version and platform.
-
-    On Windows, this function checks if the path is reserved in the current Python version.
-    On other platforms, returns False
-    """
-    if sys.platform != "win32":
-        return False
-    if sys.version_info >= (3, 13):
-        return os.path.isreserved(path)
-    return path.is_reserved()
 
 
 class EvaluateRequest(BaseModel):
@@ -67,7 +51,7 @@ class EvaluateRequest(BaseModel):
                 f"Job ID '{job_id}' contains invalid characters. Only alphanumeric characters and underscores are"
                 " allowed.")
 
-        if _is_reserved(job_id_path):
+        if job_id_path.is_reserved():
             # reserved names is Windows specific
             raise ValueError(f"Job ID '{job_id}' is a reserved name. Please choose a different name.")
 
@@ -84,7 +68,7 @@ class EvaluateRequest(BaseModel):
             raise ValueError(f"Config file '{config_file}' must be a YAML file with one of the following extensions: "
                              f"{', '.join(YAML_EXTENSIONS)}")
 
-        if _is_reserved(config_file_path):
+        if config_file_path.is_reserved():
             # reserved names is Windows specific
             raise ValueError(f"Config file '{config_file}' is a reserved name. Please choose a different name.")
 

@@ -86,7 +86,7 @@ class SemanticKernelProfilerHandler(BaseProfilerCallback):
 
         # Gather the appropriate modules/functions based on your builder config
         for llm in self._builder_llms:
-            if self._builder_llms[llm].provider_type == 'openai':
+            if self._builder_llms[llm].provider_type == 'openai':  # pylint: disable=consider-using-in
                 functions_to_patch.extend(["openai_non_streaming", "openai_streaming"])
 
         # Grab original reference for the tool call
@@ -132,7 +132,7 @@ class SemanticKernelProfilerHandler(BaseProfilerCallback):
                         if "text" in item:
                             model_input += item["text"]
             except Exception as e:
-                logger.exception("Error in getting model input: %s", e)
+                logger.exception("Error in getting model input: %s", e, exc_info=True)
 
             input_stats = IntermediateStepPayload(event_type=IntermediateStepType.LLM_START,
                                                   framework=LLMFrameworkEnum.SEMANTIC_KERNEL,
@@ -232,7 +232,7 @@ class SemanticKernelProfilerHandler(BaseProfilerCallback):
                 return result
 
             except Exception as e:
-                logger.error("ToolUsage._use error: %s", e)
+                logger.exception("ToolUsage._use error: %s", e)
                 raise
 
         return patched_tool_call

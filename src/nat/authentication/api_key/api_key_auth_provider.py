@@ -31,7 +31,7 @@ class APIKeyAuthProvider(AuthProviderBase[APIKeyAuthProviderConfig]):
     # fmt: off
     def __init__(self,
                  config: APIKeyAuthProviderConfig,
-                 config_name: str | None = None) -> None:
+                 config_name: str | None = None) -> None:  # pylint: disable=unused-argument
         assert isinstance(config, APIKeyAuthProviderConfig), ("Config is not APIKeyAuthProviderConfig")
         super().__init__(config)
     # fmt: on

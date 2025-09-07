@@ -21,9 +21,7 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from contextlib import nullcontext
 
-from fastapi import WebSocket
 from starlette.requests import HTTPConnection
-from starlette.requests import Request
 
 from nat.builder.context import Context
 from nat.builder.context import ContextState
@@ -91,8 +89,7 @@ class SessionManager:
     @asynccontextmanager
     async def session(self,
                       user_manager=None,
-                      http_connection: HTTPConnection | None = None,
-                      user_message_id: str | None = None,
+                      request: HTTPConnection | None = None,
                       conversation_id: str | None = None,
                       user_input_callback: Callable[[InteractionPrompt], Awaitable[HumanResponse]] = None,
                       user_authentication_callback: Callable[[AuthProviderBaseConfig, AuthFlowType],
@@ -110,11 +107,10 @@ class SessionManager:
         if user_authentication_callback is not None:
             token_user_authentication = self._context_state.user_auth_callback.set(user_authentication_callback)
 
-        if isinstance(http_connection, WebSocket):
-            self.set_metadata_from_websocket(user_message_id, conversation_id)
+        if conversation_id is not None and request is None:
+            self._context_state.conversation_id.set(conversation_id)
 
-        if isinstance(http_connection, Request):
-            self.set_metadata_from_http_request(http_connection)
+        self.set_metadata_from_http_request(request)
 
         try:
             yield self
@@ -139,11 +135,14 @@ class SessionManager:
             async with self._workflow.run(message) as runner:
                 yield runner
 
-    def set_metadata_from_http_request(self, request: Request) -> None:
+    def set_metadata_from_http_request(self, request: HTTPConnection | None) -> None:
         """
         Extracts and sets user metadata request attributes from a HTTP request.
         If request is None, no attributes are set.
         """
+        if request is None:
+            return
+
         self._context.metadata._request.method = getattr(request, "method", None)
         self._context.metadata._request.url_path = request.url.path
         self._context.metadata._request.url_port = request.url.port
@@ -157,20 +156,6 @@ class SessionManager:
 
         if request.headers.get("conversation-id"):
             self._context_state.conversation_id.set(request.headers["conversation-id"])
-
-        if request.headers.get("user-message-id"):
-            self._context_state.user_message_id.set(request.headers["user-message-id"])
-
-    def set_metadata_from_websocket(self, user_message_id: str | None, conversation_id: str | None) -> None:
-        """
-        Extracts and sets user metadata for Websocket connections.
-        """
-
-        if conversation_id is not None:
-            self._context_state.conversation_id.set(conversation_id)
-
-        if user_message_id is not None:
-            self._context_state.user_message_id.set(user_message_id)
 
 
 # Compatibility aliases with previous releases

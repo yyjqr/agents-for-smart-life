@@ -289,7 +289,7 @@ class StepAdaptor:
 
         return event
 
-    def process(self, step: IntermediateStep) -> ResponseSerializable | None:
+    def process(self, step: IntermediateStep) -> ResponseSerializable | None:  # pylint: disable=R1710
 
         # Track the chunk
         self._history.append(step)
@@ -314,6 +314,6 @@ class StepAdaptor:
                 return self._handle_custom(payload, ancestry)
 
         except Exception as e:
-            logger.exception("Error processing intermediate step: %s", e)
+            logger.error("Error processing intermediate step: %s", e, exc_info=True)
 
         return None

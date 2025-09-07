@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import logging
 from typing import Callable
 
@@ -22,6 +23,7 @@ from langchain.schema import HumanMessage
 from langchain.schema import SystemMessage
 from langchain_core.language_models import BaseChatModel
 from langchain_core.runnables import RunnableLambda
+from tqdm import tqdm
 
 from nat.eval.evaluator.base_evaluator import BaseEvaluator
 from nat.eval.evaluator.evaluator_model import EvalInputItem
@@ -29,6 +31,7 @@ from nat.eval.evaluator.evaluator_model import EvalOutputItem
 
 logger = logging.getLogger(__name__)
 
+# pylint: disable=line-too-long
 # flake8: noqa: E501
 
 
@@ -182,8 +185,8 @@ class TunableRagEvaluator(BaseEvaluator):
                     relevance_score = parsed_response["relevance_score"]
                     reasoning = parsed_response["reasoning"]
                 except KeyError as e:
-                    logger.exception("Missing required keys in default scoring response: %s",
-                                     ", ".join(str(arg) for arg in e.args))
+                    logger.error("Missing required keys in default scoring response: %s",
+                                 ", ".join(str(arg) for arg in e.args))
                     reasoning = f"Error in evaluator from parsing judge LLM response. Missing required key(s): {', '.join(str(arg) for arg in e.args)}"
 
                 coverage_weight = self.default_score_weights.get("coverage", 1 / 3)
@@ -215,7 +218,7 @@ class TunableRagEvaluator(BaseEvaluator):
                     reasoning = f"Error in evaluator from parsing judge LLM response. Missing required key(s): {', '.join(str(arg) for arg in e.args)}"
                     raise
         except (KeyError, ValueError) as e:
-            logger.exception("Error parsing judge LLM response: %s", e)
+            logger.error("Error parsing judge LLM response: %s", e)
             score = 0.0
             reasoning = "Error in evaluator from parsing judge LLM response."
 

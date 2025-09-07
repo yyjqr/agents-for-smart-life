@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 def _process_validation_error(err: ValidationError, handler: ValidatorFunctionWrapHandler, info: ValidationInfo):
-    from nat.cli.type_registry import GlobalTypeRegistry
+    from nat.cli.type_registry import GlobalTypeRegistry  # pylint: disable=cyclic-import
 
     new_errors = []
     logged_once = False

@@ -298,7 +298,7 @@ class RegisteredPackage(BaseModel):
     discovery_metadata: DiscoveryMetadata
 
 
-class TypeRegistry:
+class TypeRegistry:  # pylint: disable=too-many-public-methods
 
     def __init__(self) -> None:
         # Telemetry Exporters
@@ -588,8 +588,8 @@ class TypeRegistry:
         except KeyError as err:
             raise KeyError(
                 f"An invalid Embedder config and wrapper combination was supplied. Config: `{config_type}`, "
-                f"Wrapper: `{wrapper_type}`. The workflow is requesting a {wrapper_type} Embedder client but "
-                f"there is no registered conversion from that Embedder provider to LLM framework: {wrapper_type}. "
+                "Wrapper: `{wrapper_type}`. The workflow is requesting a {wrapper_type} Embedder client but "
+                "there is no registered conversion from that Embedder provider to LLM framework: {wrapper_type}. "
                 "Please provide an Embedder configuration from one of the following providers: "
                 f"{set(self._embedder_client_provider_to_framework.keys())}") from err
 
@@ -703,8 +703,8 @@ class TypeRegistry:
         except KeyError as err:
             raise KeyError(
                 f"An invalid Retriever config and wrapper combination was supplied. Config: `{config_type}`, "
-                f"Wrapper: `{wrapper_type}`. The workflow is requesting a {wrapper_type} Retriever client but "
-                f"there is no registered conversion from that Retriever provider to LLM framework: {wrapper_type}. "
+                "Wrapper: `{wrapper_type}`. The workflow is requesting a {wrapper_type} Retriever client but "
+                "there is no registered conversion from that Retriever provider to LLM framework: {wrapper_type}. "
                 "Please provide a Retriever configuration from one of the following providers: "
                 f"{set(self._retriever_client_provider_to_framework.keys())}") from err
 
@@ -779,7 +779,7 @@ class TypeRegistry:
 
         self._registration_changed()
 
-    def get_infos_by_type(self, component_type: ComponentEnum) -> dict:
+    def get_infos_by_type(self, component_type: ComponentEnum) -> dict:  # pylint: disable=R0911
 
         if component_type == ComponentEnum.FRONT_END:
             return self._registered_front_end_infos
@@ -849,7 +849,8 @@ class TypeRegistry:
 
         raise ValueError(f"Supplied an unsupported component type {component_type}")
 
-    def get_registered_types_by_component_type(self, component_type: ComponentEnum) -> list[str]:
+    def get_registered_types_by_component_type(  # pylint: disable=R0911
+            self, component_type: ComponentEnum) -> list[str]:
 
         if component_type == ComponentEnum.FUNCTION:
             return [i.static_type() for i in self._registered_functions]
@@ -924,6 +925,7 @@ class TypeRegistry:
             if (short_names[key.local_name] == 1):
                 type_list.append((key.local_name, key.config_type))
 
+        # pylint: disable=consider-alternative-union-syntax
         return typing.Union[tuple(typing.Annotated[x_type, Tag(x_id)] for x_id, x_type in type_list)]
 
     def compute_annotation(self, cls: type[TypedBaseModelT]):

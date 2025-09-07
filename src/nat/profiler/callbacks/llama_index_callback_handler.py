@@ -94,7 +94,7 @@ class LlamaIndexProfilerHandler(BaseCallbackHandler, BaseProfilerCallback):
             try:
                 model_name = payload.get(EventPayload.SERIALIZED)['model']
             except Exception as e:
-                logger.exception("Error getting model name: %s", e)
+                logger.exception("Error getting model name: %s", e, exc_info=True)
 
             llm_text_input = " ".join(prompts_or_messages) if prompts_or_messages else ""
 
@@ -159,13 +159,13 @@ class LlamaIndexProfilerHandler(BaseCallbackHandler, BaseProfilerCallback):
                     for block in response.message.blocks:
                         llm_text_output += block.text
                 except Exception as e:
-                    logger.exception("Error getting LLM text output: %s", e)
+                    logger.exception("Error getting LLM text output: %s", e, exc_info=True)
 
                 model_name = ""
                 try:
                     model_name = response.raw.model
                 except Exception as e:
-                    logger.exception("Error getting model name: %s", e)
+                    logger.exception("Error getting model name: %s", e, exc_info=True)
 
                 # Append usage data to NAT usage stats
                 with self._lock:

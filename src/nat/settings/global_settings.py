@@ -47,12 +47,6 @@ class Settings(HashableBaseModel):
     # Registry Handeler Configuration
     channels: dict[str, RegistryHandlerBaseConfig] = {}
 
-    # Timezone fallback behavior
-    # Options:
-    #  - "utc": default to UTC
-    #  - "system": use the system's local timezone
-    fallback_timezone: typing.Literal["system", "utc"] = "utc"
-
     _configuration_directory: typing.ClassVar[str]
     _settings_changed_hooks: typing.ClassVar[list[Callable[[], None]]] = []
     _settings_changed_hooks_active: bool = True
@@ -124,6 +118,7 @@ class Settings(HashableBaseModel):
                 if (short_names[key.local_name] == 1):
                     type_list.append((key.local_name, key.config_type))
 
+            # pylint: disable=consider-alternative-union-syntax
             return typing.Union[tuple(typing.Annotated[x_type, Tag(x_id)] for x_id, x_type in type_list)]
 
         RegistryHandlerAnnotation = dict[
@@ -170,11 +165,7 @@ class Settings(HashableBaseModel):
             loaded_config = {}
         else:
             with open(file_path, mode="r", encoding="utf-8") as f:
-                try:
-                    loaded_config = json.load(f)
-                except Exception as e:
-                    logger.exception("Error loading configuration file %s: %s", file_path, e)
-                    loaded_config = {}
+                loaded_config = json.load(f)
 
         settings = Settings(**loaded_config)
         settings.set_configuration_directory(configuration_directory)
@@ -223,15 +214,13 @@ class Settings(HashableBaseModel):
                 match field:
                     case "channels":
                         self.channels = validated_data.channels
-                    case "fallback_timezone":
-                        self.fallback_timezone = validated_data.fallback_timezone
                     case _:
                         raise ValueError(f"Encountered invalid model field: {field}")
 
             return True
 
         except Exception as e:
-            logger.exception("Unable to validate user settings configuration: %s", e)
+            logger.exception("Unable to validate user settings configuration: %s", e, exc_info=True)
             return False
 
     def print_channel_settings(self, channel_type: str | None = None) -> None:

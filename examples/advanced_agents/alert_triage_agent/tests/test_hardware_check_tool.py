@@ -18,7 +18,6 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-
 from nat_alert_triage_agent.hardware_check_tool import _get_ipmi_monitor_data
 
 

@@ -14,13 +14,8 @@
 # limitations under the License.
 
 import asyncio
-import warnings
 
-from pydantic.warnings import PydanticDeprecatedSince20
-
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=PydanticDeprecatedSince20)
-    from mem0 import AsyncMemoryClient
+from mem0 import AsyncMemoryClient
 
 from nat.memory.interfaces import MemoryEditor
 from nat.memory.models import MemoryItem
@@ -113,3 +108,5 @@ class Mem0Editor(MemoryEditor):
 
             user_id = kwargs.pop("user_id")
             await self._client.delete_all(user_id=user_id)
+
+        return

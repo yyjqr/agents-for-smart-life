@@ -14,6 +14,7 @@
 # limitations under the License.
 
 # flake8: noqa
+# pylint: disable=unused-import
 
 # Import evaluators which need to be automatically registered here
 from .rag_evaluator.register import register_ragas_evaluator
