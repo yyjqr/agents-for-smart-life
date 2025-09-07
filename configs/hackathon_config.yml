@@ -1,0 +1,67 @@
+# NVIDIA NeMo Agent Toolkit 黑客松配置
+# 支持用户自定义OpenAI兼容API
+
+general:
+  use_uvloop: true
+
+functions:
+  tavily_search:
+    _type: tavily_internet_search
+    description: "使用Tavily API进行实时网络搜索"
+  
+  current_datetime:
+    _type: current_datetime
+    description: "获取当前日期和时间"
+  
+  road_info:
+    _type: mcp_tool_wrapper
+    url: "http://127.0.0.1:9901/mcp/call"   # 你的 MCP 服务器地址
+    transport: "streamable-http"
+    mcp_tool_name: road-info      # 服务器里暴露的 tool 名
+    description: "分析用户上传的道路图像..."
+    timeout_ms: 30000
+    # headers:
+    #   Authorization: Bearer ${MCP_TOKEN}   # 可选：如果需要鉴权就配
+    # 如果你的框架支持为工具声明入参结构，可以加上（可选）：
+    input_schema:
+      type: object
+      properties:
+        image_path: 
+          type: string
+          description: "http://127.0.0.1:9901/2025-05-17_15:52:02.jpg"
+        roi:
+          type: array
+          items: number
+          minItems: 4
+          maxItems: 4
+          description: 可选，矩形 [x1,y1,x2,y2]
+      required: [image_path]
+
+llms:
+  # 默认使用Bailian API (用户可修改)
+  default_llm:
+    _type: openai
+    model_name: "qwen-plus"
+    api_key: "sk-624c20dbecac4a41913f1e66e83ea1ec"
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    temperature: 0.7
+    max_tokens: 2048
+
+workflow:
+  _type: react_agent
+  tool_names:
+    - tavily_search
+    - current_datetime
+    - road_info  # 新增图像分析工具
+
+  llm_name: default_llm
+  verbose: true
+  parse_agent_response_max_retries: 3
+  max_iterations: 10
+  specialized_agents:
+    - reason_agent:        # 新增推理代理处理结构化分析
+        trigger_condition: "contains_image_or_location"
+        tools: ["road_info"]
+    - tool_agent:          # 新增工具代理处理外部数据获取
+        trigger_condition: "requires_real_time_data"
+        tools: ["tavily_search", "current_datetime"]
