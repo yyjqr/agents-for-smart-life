@@ -1,0 +1,99 @@
+# NVIDIA NeMo Agent Toolkit - 路侧场景分析配置示例
+# 支持多设备上传、位置记录、交通信息存储和共享
+
+general:
+  use_uvloop: true
+
+functions:
+  tavily_search:
+    _type: tavily_internet_search
+    description: "使用Tavily API进行实时网络搜索"
+  
+  current_datetime:
+    _type: current_datetime
+    description: "获取当前日期和时间"
+  
+  # 路侧场景分析工具 - 支持本地、URL和Base64上传
+  road_scene_analyzer:
+    _type: road_scene_analyzer
+    llm_name: default_llm
+    description: "分析路侧场景图片，支持本地路径、URL和Base64编码上传。识别交通状况、环境信息和天气条件"
+    max_image_size_mb: 20
+    timeout_seconds: 30
+  
+  # 交通信息存储工具 - 记录位置、时间和分析结果
+  traffic_info_storage:
+    _type: traffic_info_storage
+    storage_path: "./data/traffic_info"
+    description: "存储分析后的交通信息和位置、时间数据，支持多设备数据汇聚。每条记录包含: 位置坐标、时间戳、设备ID、分析结果"
+  
+  # 交通信息查询工具 - 查询和共享交通信息
+  traffic_info_query:
+    _type: traffic_info_query
+    storage_path: "./data/traffic_info"
+    description: "查询特定位置和时间范围内的交通信息，支持按设备ID过滤。可用于共享不同设备上传的交通数据"
+
+llms:
+  # 默认使用千问模型进行图像分析
+  default_llm:
+    _type: openai
+    model_name: "qwen-vl-plus"  # 支持视觉的千问VL模型
+    api_key: "${DASHSCOPE_API_KEY}"  # 从环境变量读取
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    temperature: 0.7
+    max_tokens: 2048
+
+workflow:
+  _type: react_agent
+  tool_names:
+    - tavily_search
+    - current_datetime
+    - road_scene_analyzer
+    - traffic_info_storage
+    - traffic_info_query
+
+  llm_name: default_llm
+  verbose: true
+  parse_agent_response_max_retries: 3
+  max_iterations: 10
+  
+  # 专有代理配置
+  specialized_agents:
+    # 路侧场景分析代理 - 处理图片上传和分析
+    - road_scene_agent:
+        trigger_condition: "contains_image_or_road_scene"
+        tools: ["road_scene_analyzer", "traffic_info_storage"]
+        description: "处理路侧场景图片上传、分析和存储"
+    
+    # 信息共享代理 - 处理交通信息查询和共享
+    - info_sharing_agent:
+        trigger_condition: "requires_traffic_info_query"
+        tools: ["traffic_info_query"]
+        description: "查询和共享特定位置的交通信息"
+    
+    # 工具代理 - 处理外部数据获取
+    - tool_agent:
+        trigger_condition: "requires_real_time_data"
+        tools: ["tavily_search", "current_datetime"]
+        description: "获取实时网络数据和时间信息"
+
+# 应用场景说明：
+# 
+# 场景1：单设备上报交通事件
+# 用户: "分析这张路侧图片的交通状况，位置是北京(116.3975,39.9093)"
+# Agent流程:
+#   1. road_scene_analyzer分析图片，识别交通拥堵/事故/天气等
+#   2. traffic_info_storage存储分析结果和位置时间信息
+#
+# 场景2：多设备协作共享
+# 用户A在位置1拍照上报交通拥堵
+# 用户B查询位置1周边5km内的最近24小时交通信息
+# Agent使用traffic_info_query获取用户A的上报信息供用户B参考
+#
+# 场景3：事件关联分析
+# Agent可以根据多个设备在不同时间上报的交通信息，
+# 识别交通拥堵的传播过程、事故的影响范围等
+#
+# 数据存储位置: ./data/traffic_info/
+#   - index.jsonl: 索引文件，记录每条数据的ID、位置、时间、设备ID
+#   - [record_id].json: 完整的分析结果和元数据

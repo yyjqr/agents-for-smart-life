@@ -1,0 +1,40 @@
+# Docker部署配置示例
+# 用于容器化部署路侧场景分析服务
+
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+WORKDIR /app
+
+# 安装Python和依赖
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装Python依赖
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 复制插件代码
+COPY examples/custom_functions/road_scene_analysis /app/road_scene_analysis
+
+# 安装插件
+RUN cd /app/road_scene_analysis && pip install -e .
+
+# 创建数据目录
+RUN mkdir -p /data/traffic_info
+
+# 设置环境变量
+ENV DASHSCOPE_API_KEY=""
+ENV DATA_PATH="/data/traffic_info"
+
+# 暴露端口
+EXPOSE 8000
+
+# 启动选项
+# 选项1：启动API服务
+CMD ["python", "/app/road_scene_analysis/api_server.py", "--port", "8000", "--storage", "/data/traffic_info"]
+
+# 选项2：启动Agent（需要配置文件）
+# CMD ["python", "-m", "nat.cli.runner", "/app/configs/hackathon_config.yml"]

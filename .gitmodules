@@ -1,0 +1,3 @@
+[submodule "external/nat-ui"]
+	path = external/nat-ui
+	url = https://github.com/NVIDIA/NeMo-Agent-Toolkit-UI.git

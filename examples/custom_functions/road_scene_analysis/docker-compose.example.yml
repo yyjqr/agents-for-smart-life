@@ -1,0 +1,79 @@
+# Docker Compose 配置示例
+# 用于快速启动路侧场景分析服务及其依赖
+
+version: '3.8'
+
+services:
+  # REST API服务
+  traffic-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.example
+    container_name: traffic-analysis-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - DATA_PATH=/data/traffic_info
+    volumes:
+      - traffic_data:/data/traffic_info
+      - ./configs:/app/configs
+    command: python /app/road_scene_analysis/api_server.py --port 8000 --storage /data/traffic_info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - traffic_network
+
+  # 可选：数据库服务（用于高级部署）
+  # postgres:
+  #   image: postgres:15
+  #   container_name: traffic-db
+  #   environment:
+  #     - POSTGRES_DB=traffic_info
+  #     - POSTGRES_USER=${DB_USER}
+  #     - POSTGRES_PASSWORD=${DB_PASSWORD}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - traffic_network
+
+  # 可选：Redis缓存（用于高性能部署）
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: traffic-cache
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - traffic_network
+
+volumes:
+  traffic_data:
+  # postgres_data:
+  # redis_data:
+
+networks:
+  traffic_network:
+    driver: bridge
+
+# 使用方法：
+# 1. 设置环境变量：
+#    export DASHSCOPE_API_KEY="your-api-key"
+#
+# 2. 启动服务：
+#    docker-compose up -d
+#
+# 3. 查看日志：
+#    docker-compose logs -f traffic-api
+#
+# 4. 停止服务：
+#    docker-compose down
+#
+# 5. 访问API：
+#    curl http://localhost:8000/health
+#    curl http://localhost:8000/docs

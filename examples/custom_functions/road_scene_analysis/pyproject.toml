@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nat_road_scene_analysis"
+version = "1.0.0"
+description = "NVIDIA NeMo Agent Toolkit - 路侧场景图片分析插件，支持本地上传和URL上传，集成千问图像理解模型"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+keywords = ["nemo", "agent", "toolkit", "road-scene", "traffic", "image-analysis", "qwen"]
+authors = [
+    {name = "NVIDIA Corporation"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "nvidia-nat",
+    "aiohttp>=3.8.0",
+    "aiofiles>=23.0.0",
+    "Pillow>=10.0.0",
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.entry-points."nat.components"]
+nat_road_scene_analysis = "nat_road_scene_analysis.register"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml", "*.json"]

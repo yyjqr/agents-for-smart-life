@@ -1,0 +1,17 @@
+[
+    {
+        "name": "Cherry Blossom Tour", "cost": 40, "city": "Tokyo"
+    },
+    {
+        "name": "Modern Art Expo", "cost": 30, "city": "New York"
+    },
+    {
+        "name": "Sushi Making Workshop", "cost": 50, "city": "Tokyo"
+    },
+    {
+        "name": "Vegan Food Festival", "cost": 20, "city": "New York"
+    },
+    {
+        "name": "Vegan Michelin Star Restaurant", "cost": 100, "city": "New York"
+    }
+]
