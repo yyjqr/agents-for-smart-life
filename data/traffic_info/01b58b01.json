@@ -1,0 +1,21 @@
+{
+  "id": "01b58b01",
+  "location": "unknown",
+  "timestamp": "2025-12-12T20:13:32.581020",
+  "device_id": "cam_p3",
+  "analysis_result": {
+    "traffic_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    },
+    "environment_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    },
+    "weather_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    }
+  },
+  "stored_at": "2025-12-12T20:13:37.980711"
+}

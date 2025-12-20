@@ -1,0 +1,21 @@
+{
+  "id": "4059e4f0",
+  "location": "0,0",
+  "timestamp": "2025-12-12T19:58:01.470883",
+  "device_id": "cam_zs",
+  "analysis_result": {
+    "traffic_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    },
+    "environment_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    },
+    "weather_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    }
+  },
+  "stored_at": "2025-12-12T19:58:07.473845"
+}

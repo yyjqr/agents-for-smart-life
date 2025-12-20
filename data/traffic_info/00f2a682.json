@@ -1,0 +1,26 @@
+{
+  "id": "00f2a682",
+  "location": "116.4074,39.9042",
+  "timestamp": "2025-06-23 12:57:38",
+  "device_id": "cam_20250623_125739",
+  "analysis_result": {
+    "traffic_info": {
+      "status": "analyzed",
+      "details": "道路宽阔，多车道，标线清晰，车辆稀疏，行驶顺畅。无交通灯或其状态不可见，无事故或施工迹象。车辆主要在各自车道内行驶，未见异常行为。",
+      "congestion": "畅通",
+      "vehicle_count": 8,
+      "vulnerable_count": 0,
+      "event_detected": false,
+      "detections": []
+    },
+    "environment_info": {
+      "status": "analyzed",
+      "details": "道路两侧有绿化带和修剪整齐的灌木，远处可见树木和部分建筑物轮廓。设有监控摄像头杆和交通标志牌。无行人、自行车、摩托车或摆摊现象。"
+    },
+    "weather_info": {
+      "status": "analyzed",
+      "details": "天气晴朗，光照充足，阴影清晰，能见度高，无雨雾等不良天气影响。"
+    }
+  },
+  "stored_at": "2025-12-19T08:37:23.883711"
+}

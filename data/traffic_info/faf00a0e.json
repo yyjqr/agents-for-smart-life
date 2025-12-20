@@ -1,0 +1,16 @@
+{
+  "id": "faf00a0e",
+  "location": "未知位置",
+  "timestamp": "2025-06-23 12:57:42",
+  "device_id": "unknown",
+  "analysis_result": {
+    "traffic_info": {
+      "status": "analyzed",
+      "details": "道路施工导致拥堵，有8辆车和7名弱势群体。",
+      "congestion": "拥堵",
+      "vehicle_count": 8,
+      "vulnerable_count": 7
+    }
+  },
+  "stored_at": "2025-12-18T16:12:02.578807"
+}

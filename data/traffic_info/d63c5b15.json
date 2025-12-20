@@ -1,0 +1,22 @@
+{
+  "id": "d63c5b15",
+  "location": "None",
+  "timestamp": "2025-12-12T19:25:48.117270",
+  "device_id": "None",
+  "analysis_result": {
+    "scene_description": "图片分析中检测到: all类别的内容",
+    "traffic_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    },
+    "environment_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    },
+    "weather_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    }
+  },
+  "stored_at": "2025-12-12T19:25:52.931846"
+}

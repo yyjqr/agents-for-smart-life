@@ -1,0 +1,21 @@
+{
+  "id": "11362ac7",
+  "location": "未知位置",
+  "timestamp": "2025-06-23 12:57:42",
+  "device_id": "unknown",
+  "analysis_result": {
+    "traffic_info": {
+      "status": "analyzed",
+      "details": "道路施工导致部分车道封闭，车辆缓慢通行。"
+    },
+    "environment_info": {
+      "status": "analyzed",
+      "details": "城市街道，绿树成荫，有施工围挡和工人作业。"
+    },
+    "weather_info": {
+      "status": "analyzed",
+      "details": "天气晴朗，适合户外施工。"
+    }
+  },
+  "stored_at": "2025-12-17T14:06:46.471914"
+}

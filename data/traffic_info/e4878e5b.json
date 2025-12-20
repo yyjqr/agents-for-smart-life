@@ -1,0 +1,21 @@
+{
+  "id": "e4878e5b",
+  "location": "unknown",
+  "timestamp": "2025-12-12T19:50:31.603081",
+  "device_id": "unknown",
+  "analysis_result": {
+    "traffic_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    },
+    "environment_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    },
+    "weather_info": {
+      "status": "analyzed",
+      "details": "图片分析中检测到: all类别的内容"
+    }
+  },
+  "stored_at": "2025-12-12T19:50:37.430359"
+}

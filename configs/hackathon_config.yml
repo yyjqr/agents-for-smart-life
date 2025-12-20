@@ -1,0 +1,74 @@
+# NVIDIA NeMo Agent Toolkit 黑客松配置
+# 支持用户自定义OpenAI兼容API
+
+general:
+  use_uvloop: true
+
+functions:
+  tavily_search:
+    _type: tavily_internet_search
+    description: "使用Tavily API进行实时网络搜索"
+  
+  current_datetime:
+    _type: current_datetime
+    description: "获取当前日期和时间"
+  
+  road_scene_analyzer:
+    _type: road_scene_analyzer
+    llm_name: vision_llm
+    description: "分析路侧场景图片，支持本地路径、URL和Base64编码上传。识别交通状况、环境信息和天气条件"
+    max_image_size_mb: 20
+    timeout_seconds: 30
+  
+  traffic_info_storage:
+    _type: traffic_info_storage
+    storage_path: "./data/traffic_info"
+    description: "存储分析后的交通信息和位置、时间数据，支持多设备数据汇聚"
+  
+  traffic_info_query:
+    _type: traffic_info_query
+    storage_path: "./data/traffic_info"
+    description: "查询特定位置和时间范围内的交通信息，支持按设备ID过滤"
+
+llms:
+  # 默认使用Bailian API (用户可修改)
+  default_llm:
+    _type: openai
+    model_name: "qwen3-vl-plus"
+    api_key: "sk-624c20dbecac4a41913f1e66e83ea1ec"
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    temperature: 0.7
+    max_tokens: 2048
+
+  vision_llm:  
+    _type: openai
+    model_name: "qwen3-vl-plus"
+    api_key: "sk-624c20dbecac4a41913f1e66e83ea1ec"
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    temperature: 0.1
+    max_tokens: 2048
+
+workflow:
+  _type: react_agent
+  use_openai_api: true
+  tool_names:
+    - tavily_search
+    - current_datetime
+    - road_scene_analyzer
+    - traffic_info_storage
+    - traffic_info_query
+
+  llm_name: default_llm
+  verbose: true
+  parse_agent_response_max_retries: 3
+  max_iterations: 10
+  specialized_agents:
+    - road_scene_agent:        # 路侧场景分析代理
+        trigger_condition: "contains_image_or_road_scene"
+        tools: ["road_scene_analyzer", "traffic_info_storage"]
+    - info_sharing_agent:      # 信息共享代理
+        trigger_condition: "requires_traffic_info_query"
+        tools: ["traffic_info_query"]
+    - tool_agent:              # 工具代理处理外部数据获取
+        trigger_condition: "requires_real_time_data"
+        tools: ["tavily_search", "current_datetime"]
