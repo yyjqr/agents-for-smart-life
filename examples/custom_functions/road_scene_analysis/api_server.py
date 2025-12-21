@@ -8,42 +8,154 @@ REST API服务器示例
 使用FastAPI框架（可选，如需启用此功能请安装: pip install fastapi uvicorn）
 """
 
+import sys
+from pathlib import Path
+import os
+
+# 添加src目录到Python路径，以便导入模块
+current_dir = Path(__file__).resolve().parent
+src_dir = current_dir / "src"
+if src_dir.exists():
+    sys.path.append(str(src_dir))
+
 try:
-    from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+    from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks
     from fastapi.responses import JSONResponse
     import uvicorn
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
 
-
-from typing import Optional
+from typing import Optional, Dict, Any
 import logging
 import asyncio
+import json
 from datetime import datetime
-from pathlib import Path
+
+# 尝试导入核心分析器
+try:
+    from nat_road_scene_analysis.core_analyzer import CoreRoadSceneAnalyzer
+except ImportError:
+    CoreRoadSceneAnalyzer = None
+    print("Warning: Could not import CoreRoadSceneAnalyzer. Analysis will be disabled.")
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 class TrafficAPIServer:
     """交通信息REST API服务器"""
     
-    def __init__(self, storage_path: str = "./data/traffic_info", port: int = 8000):
+    def __init__(self, storage_path: str = "./data/traffic_info", port: int = 8000, llm_config: Optional[Dict] = None):
         self.storage_path = storage_path
         self.port = port
+        self.llm_config = llm_config or {}
         self.app = None
+        self.analysis_queue = asyncio.Queue()
+        self.analyzer = None
         
         if FASTAPI_AVAILABLE:
             self.app = FastAPI(title="Traffic Information API")
             self._setup_routes()
-    
+            self._setup_events()
+            
+    def _init_analyzer(self):
+        """初始化分析器和LLM"""
+        if not CoreRoadSceneAnalyzer:
+            return
+
+        llm = None
+        # 尝试初始化LLM
+        try:
+            from langchain_openai import ChatOpenAI
+            
+            api_key = self.llm_config.get("api_key") or os.environ.get("DASHSCOPE_API_KEY") or os.environ.get("OPENAI_API_KEY")
+            base_url = self.llm_config.get("base_url") or os.environ.get("OPENAI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+            model_name = self.llm_config.get("model_name", "qwen-vl-plus")
+            
+            if api_key:
+                llm = ChatOpenAI(
+                    model=model_name,
+                    api_key=api_key,
+                    base_url=base_url,
+                    temperature=0.01,
+                    max_tokens=2048
+                )
+                logger.info(f"LLM initialized: {model_name}")
+            else:
+                logger.warning("No API Key found. LLM analysis will be skipped.")
+        except ImportError:
+            logger.warning("langchain_openai not installed. LLM analysis will be skipped.")
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM: {e}")
+
+        self.analyzer = CoreRoadSceneAnalyzer(llm=llm)
+
+    async def _process_queue(self):
+        """后台任务：处理分析队列"""
+        logger.info("Starting analysis worker...")
+        while True:
+            try:
+                task = await self.analysis_queue.get()
+                file_path = task.get("file_path")
+                location = task.get("location")
+                device_id = task.get("device_id")
+                
+                logger.info(f"Processing image: {file_path}")
+                
+                if self.analyzer:
+                    result = await self.analyzer.analyze(str(file_path), location)
+                    
+                    if result["success"]:
+                        logger.info(f"Analysis successful for {file_path}")
+                        # 这里可以将结果保存到文件或数据库
+                        self._save_result(result, device_id)
+                    else:
+                        logger.error(f"Analysis failed for {file_path}: {result.get('scene_description')}")
+                else:
+                    logger.warning("Analyzer not initialized, skipping analysis.")
+                
+                self.analysis_queue.task_done()
+            except Exception as e:
+                logger.error(f"Error in worker: {e}")
+                await asyncio.sleep(1)
+
+    def _save_result(self, result: Dict, device_id: str):
+        """保存分析结果"""
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"analysis_{device_id}_{timestamp}.json"
+            save_path = Path(self.storage_path) / filename
+            
+            # 确保存储目录存在
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # 转换 datetime 对象为字符串以便 JSON 序列化
+            def json_serial(obj):
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                raise TypeError ("Type not serializable")
+
+            with open(save_path, "w", encoding="utf-8") as f:
+                json.dump(result, f, ensure_ascii=False, indent=2, default=json_serial)
+            
+            logger.info(f"Result saved to {save_path}")
+        except Exception as e:
+            logger.error(f"Failed to save result: {e}")
+
+    def _setup_events(self):
+        """设置启动和关闭事件"""
+        @self.app.on_event("startup")
+        async def startup_event():
+            self._init_analyzer()
+            asyncio.create_task(self._process_queue())
+
     def _setup_routes(self):
         """设置API路由"""
         
         @self.app.get("/health")
         async def health_check():
-            return {"status": "ok", "timestamp": datetime.now().isoformat()}
+            return {"status": "ok", "timestamp": datetime.now().isoformat(), "queue_size": self.analysis_queue.qsize()}
         
         @self.app.post("/api/v1/upload-image")
         async def upload_image(
@@ -54,12 +166,6 @@ class TrafficAPIServer:
         ):
             """
             上传图片进行交通分析
-            
-            参数:
-            - file: 图片文件
-            - location: 位置信息 (格式: "经度,纬度")
-            - device_id: 设备ID
-            - analysis_type: 分析类型 (traffic, environment, weather, all)
             """
             try:
                 # 保存临时文件
@@ -75,139 +181,44 @@ class TrafficAPIServer:
                 with open(file_path, "wb") as f:
                     f.write(content)
                 
+                # 添加到分析队列
+                await self.analysis_queue.put({
+                    "file_path": str(file_path),
+                    "location": location,
+                    "device_id": device_id,
+                    "analysis_type": analysis_type
+                })
+                
                 return {
                     "success": True,
                     "file_id": file_id,
-                    "message": "图片上传成功",
-                    "next_step": f"调用分析工具分析图片: {file_path}",
+                    "message": "图片上传成功，已加入分析队列",
+                    "queue_position": self.analysis_queue.qsize(),
                     "timestamp": datetime.now().isoformat(),
                 }
             except Exception as e:
                 logger.error(f"上传失败: {e}")
                 raise HTTPException(status_code=400, detail=str(e))
         
-        @self.app.post("/api/v1/analyze")
-        async def analyze_image(request_body: dict):
-            """
-            分析图片
-            
-            参数:
-            {
-                "image_source": "文件路径、URL或Base64",
-                "location": "经度,纬度",
-                "device_id": "设备ID",
-                "analysis_type": "分析类型"
-            }
-            """
+        @self.app.get("/api/v1/results")
+        async def get_results(limit: int = 10):
+            """获取最近的分析结果"""
+            results = []
             try:
-                # 这里调用road_scene_analyzer工具
-                # 实际实现需要集成NeMo Agent的工具调用机制
-                
-                return {
-                    "success": True,
-                    "record_id": "mock_id_123",
-                    "analysis_result": {
-                        "scene_description": "道路畅通，交通流量正常",
-                        "traffic_info": {
-                            "status": "normal",
-                            "vehicle_count": "~50 vehicles/minute"
-                        }
-                    },
-                    "timestamp": datetime.now().isoformat(),
-                }
-            except Exception as e:
-                logger.error(f"分析失败: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
-        
-        @self.app.get("/api/v1/query")
-        async def query_traffic_info(
-            location: Optional[str] = None,
-            radius_km: float = 5.0,
-            hours: int = 24,
-            device_id: Optional[str] = None
-        ):
-            """
-            查询交通信息
-            
-            参数:
-            - location: 查询位置 (可选)
-            - radius_km: 查询半径，单位公里 (默认5)
-            - hours: 查询时间范围，单位小时 (默认24)
-            - device_id: 过滤设备ID (可选)
-            """
-            try:
-                # 这里调用traffic_info_query工具
-                return {
-                    "success": True,
-                    "location": location,
-                    "radius_km": radius_km,
-                    "time_range_hours": hours,
-                    "total_records": 5,
-                    "records": [
-                        {
-                            "id": "record_001",
-                            "location": location,
-                            "timestamp": "2025-12-05T10:30:00",
-                            "device_id": "device_001",
-                            "analysis": {
-                                "traffic_status": "congestion",
-                                "description": "交通拥堵"
-                            }
-                        }
-                    ]
-                }
-            except Exception as e:
-                logger.error(f"查询失败: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
-        
-        @self.app.get("/api/v1/devices")
-        async def get_device_list():
-            """获取已上报的设备列表"""
-            try:
-                # 从存储中读取所有设备
-                devices = set()
                 storage_dir = Path(self.storage_path)
-                
                 if storage_dir.exists():
-                    for json_file in storage_dir.glob("*.json"):
+                    files = sorted(storage_dir.glob("analysis_*.json"), key=os.path.getmtime, reverse=True)
+                    for f in files[:limit]:
                         try:
-                            import json
-                            with open(json_file, "r") as f:
-                                record = json.load(f)
-                                device_id = record.get("device_id", "unknown")
-                                devices.add(device_id)
+                            with open(f, "r", encoding="utf-8") as json_file:
+                                results.append(json.load(json_file))
                         except Exception:
                             pass
-                
-                return {
-                    "success": True,
-                    "total_devices": len(devices),
-                    "devices": list(devices),
-                    "timestamp": datetime.now().isoformat(),
-                }
             except Exception as e:
-                logger.error(f"获取设备列表失败: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
-        
-        @self.app.get("/api/v1/report")
-        async def get_traffic_report(hours: int = 24):
-            """获取交通数据报告"""
-            try:
-                return {
-                    "success": True,
-                    "time_range": f"最近{hours}小时",
-                    "summary": {
-                        "total_reports": 42,
-                        "total_devices": 5,
-                        "congestion_areas": 3,
-                        "critical_events": 1
-                    },
-                    "timestamp": datetime.now().isoformat(),
-                }
-            except Exception as e:
-                logger.error(f"获取报告失败: {e}")
-                raise HTTPException(status_code=500, detail=str(e))
-    
+                logger.error(f"获取结果失败: {e}")
+            
+            return {"success": True, "results": results}
+
     def run(self):
         """启动服务器"""
         if not FASTAPI_AVAILABLE:
@@ -227,12 +238,37 @@ class TrafficAPIServer:
 # CLI使用示例
 if __name__ == "__main__":
     import argparse
+    import json
+    import os
     
     parser = argparse.ArgumentParser(description="启动交通信息API服务器")
     parser.add_argument("--port", type=int, default=8000, help="服务器端口")
     parser.add_argument("--storage", type=str, default="./data/traffic_info", help="数据存储路径")
+    parser.add_argument("--config", type=str, default=None, help="配置文件路径 (JSON)")
     
     args = parser.parse_args()
     
-    server = TrafficAPIServer(storage_path=args.storage, port=args.port)
+    port = args.port
+    storage_path = args.storage
+    llm_config = {}
+    
+    # 如果提供了配置文件，从配置文件加载
+    if args.config and os.path.exists(args.config):
+        try:
+            with open(args.config, 'r') as f:
+                config = json.load(f)
+                if "server" in config:
+                    server_config = config["server"]
+                    if "port" in server_config:
+                        port = server_config["port"]
+                    if "storage_path" in server_config:
+                        storage_path = server_config["storage_path"]
+                if "llm" in config:
+                    llm_config = config["llm"]
+                    
+                print(f"已从配置文件 {args.config} 加载配置")
+        except Exception as e:
+            print(f"加载配置文件失败: {e}，将使用命令行参数或默认值")
+    
+    server = TrafficAPIServer(storage_path=storage_path, port=port, llm_config=llm_config)
     server.run()

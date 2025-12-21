@@ -1,0 +1,11 @@
+{
+    "server": {
+        "port": 8080,
+        "storage_path": "./data/traffic_info_v2"
+    },
+    "llm": {
+        "api_key": "sk-624c20dbecac4a41913f1e66e83ea1ec",
+        "model_name": "qwen-vl-plus",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    }
+}
