@@ -17,11 +17,11 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ messages }) => {
     const imageSrc = imageMatch ? imageMatch[1] : '';
 
     // More robust regex for congestion
-    const congestionMatch = content.match(/\|\s*(?:🚦\s*)?拥堵等级\s*\|\s*(.*?)\s*\|/) || content.match(/congestion['"]?:\s*['"](.*?)['"]/);
+    const congestionMatch = content.match(/\|\s*\*\*通行状况\*\*\s*\|\s*(.*?)\s*\|/) || content.match(/\|\s*(?:🚦\s*)?拥堵等级\s*\|\s*(.*?)\s*\|/) || content.match(/congestion['"]?:\s*['"](.*?)['"]/);
     const congestion = congestionMatch ? congestionMatch[1].trim() : '未知';
 
     // More robust regex for vehicle count
-    const vehicleCountMatch = content.match(/\|\s*(?:🚗\s*)?机动车数\s*\|\s*(\d+)\s*\|/) || content.match(/vehicle_count['"]?:\s*(\d+)/);
+    const vehicleCountMatch = content.match(/\|\s*机动车约\s*(\d+)\s*辆\s*\|/) || content.match(/\|\s*(?:🚗\s*)?机动车数\s*\|\s*(\d+)\s*\|/) || content.match(/vehicle_count['"]?:\s*(\d+)/);
     const vehicleCount = vehicleCountMatch ? vehicleCountMatch[1] : '0';
 
     const timeMatch = content.match(/图片时间:\s*(.*?)\n/) || content.match(/timestamp['"]?:\s*['"](.*?)['"]/);
