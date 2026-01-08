@@ -80,36 +80,48 @@ async def road_scene_analyzer(config: RoadSceneAnalyzerConfig, builder: Builder)
     
     async def _analyze_road_scene(input_data: RoadSceneAnalysisInput) -> RoadSceneAnalysisOutput:
         """分析路侧场景"""
-        
-        # 获取LLM
         try:
-            # 使用LangChain wrapper以便使用ainvoke
-            llm = await builder.get_llm(llm_name=config.llm_name, wrapper_type="langchain")
-        except Exception as e:
-            logger.warning(f"无法获取LLM {config.llm_name}: {e}，将使用直接分析")
-            llm = None
-        
-        analyzer = CoreRoadSceneAnalyzer(llm=llm)
-        result = await analyzer.analyze(input_data.image_source, input_data.location)
-        
-        # 如果成功，添加提示信息
-        if result["success"]:
-            result["scene_description"] += "\n\n**SYSTEM NOTE**: Analysis complete. You MUST now call the `traffic_info_storage` tool to save this result."
+            # 获取LLM
+            try:
+                # 使用LangChain wrapper以便使用ainvoke
+                llm = await builder.get_llm(llm_name=config.llm_name, wrapper_type="langchain")
+            except Exception as e:
+                logger.warning(f"无法获取LLM {config.llm_name}: {e}，将使用直接分析")
+                llm = None
+            
+            analyzer = CoreRoadSceneAnalyzer(llm=llm)
+            result = await analyzer.analyze(input_data.image_source, input_data.location)
+            
+            # 如果成功，添加提示信息
+            if result["success"]:
+                result["scene_description"] += "\n\n**SYSTEM NOTE**: Analysis complete. You MUST now call the `traffic_info_storage` tool to save this result."
 
-        return RoadSceneAnalysisOutput(
-            success=result["success"],
-            scene_description=result["scene_description"],
-            traffic_info=result["traffic_info"],
-            environment_info=result["environment_info"],
-            weather_info=result["weather_info"],
-            timestamp=result["timestamp"],
-            location=result["location"],
-            device_id=input_data.device_id,
-        )
+            return RoadSceneAnalysisOutput(
+                success=result["success"],
+                scene_description=result["scene_description"],
+                traffic_info=result["traffic_info"],
+                environment_info=result["environment_info"],
+                weather_info=result["weather_info"],
+                timestamp=result["timestamp"],
+                location=result["location"],
+                device_id=input_data.device_id,
+            )
+        except Exception as e:
+            logger.error(f"Road scene analysis failed: {e}")
+            return RoadSceneAnalysisOutput(
+                success=False,
+                scene_description=f"Analysis failed: {str(e)}",
+                traffic_info={},
+                environment_info={},
+                weather_info={},
+                timestamp="",
+                location=input_data.location,
+                device_id=input_data.device_id,
+            )
     
     yield FunctionInfo.create(
         single_fn=_analyze_road_scene,
-        description="分析路侧场景图片，识别交通状况、环境信息和天气条件。支持本地路径、URL和Base64编码的图片输入。注意：工具输出包含标注后的图片（Markdown格式），你必须在最终回复中原样包含该图片Markdown代码，不要修改或省略。",
+        description="分析路侧场景图片，识别交通状况、环境信息和天气条件。支持本地路径、URL和Base64编码的图片输入。重要：此工具返回的`scene_description`包含Markdown格式的表格和标注图片。你的最终回答(Final Answer)必须包含这些Markdown内容，以便用户能看到分析结果和图片。",
         input_schema=RoadSceneAnalysisInput,
     )
 
@@ -179,29 +191,49 @@ async def traffic_info_storage(config: TrafficInfoStorageConfig, builder: Builde
             import uuid
             import json
             import ast
+            import re
             
-            # 手动处理输入转换，解决框架类型转换问题
+            logger.info(f"TrafficInfoStorage received input type: {type(input_data)}")
+            
+            # 预处理：如果输入是字符串，尝试清理和解析
             if isinstance(input_data, str):
-                # 尝试多种方式解析字符串
-                parsed = False
+                # 移除可能的 markdown 代码块标记
+                cleaned_input = input_data.strip()
+                cleaned_input = re.sub(r'^```(?:json)?\s*|\s*```$', '', cleaned_input, flags=re.MULTILINE)
+                
+                parsed_data = None
                 # 1. 尝试标准 JSON 解析
                 try:
-                    input_data = json.loads(input_data)
-                    parsed = True
+                    parsed_data = json.loads(cleaned_input)
                 except json.JSONDecodeError:
-                    pass
-                
-                # 2. 如果失败，尝试 Python 字面量解析 (处理单引号等情况)
-                if not parsed:
+                    # 2. 尝试 Python 字面量解析 (处理单引号等情况)
                     try:
-                        input_data = ast.literal_eval(input_data)
-                        parsed = True
+                        parsed_data = ast.literal_eval(cleaned_input)
                     except (ValueError, SyntaxError):
                         pass
-            
+                
+                if parsed_data and isinstance(parsed_data, dict):
+                    input_data = parsed_data
+                else:
+                    # 如果无法解析为字典，尝试将其作为 analysis_result 字段
+                    # 这是一种容错机制，假设 Agent 只是传递了分析结果文本
+                    logger.warning("无法解析输入为 JSON/Dict，尝试将其作为 analysis_result 处理")
+                    input_data = {"analysis_result": cleaned_input}
+
+            # 转换为 TrafficInfoInput 对象
             if isinstance(input_data, dict):
-                # 如果是字典，转换为 TrafficInfoInput 对象
-                input_data = TrafficInfoInput(**input_data)
+                try:
+                    input_data = TrafficInfoInput(**input_data)
+                except Exception as e:
+                    # 如果验证失败，尝试构建最小有效输入
+                    logger.warning(f"输入验证失败: {e}，尝试构建最小有效输入")
+                    input_data = TrafficInfoInput(
+                        analysis_result=input_data.get("analysis_result", str(input_data)),
+                        location=input_data.get("location", "未知位置"),
+                        timestamp=input_data.get("timestamp"),
+                        device_id=input_data.get("device_id", "default_device"),
+                        image_source=input_data.get("image_source")
+                    )
             
             if not isinstance(input_data, TrafficInfoInput):
                 raise ValueError(f"Invalid input type: {type(input_data)}. Expected TrafficInfoInput, dict, or JSON string.")
@@ -248,7 +280,7 @@ async def traffic_info_storage(config: TrafficInfoStorageConfig, builder: Builde
     
     yield FunctionInfo.create(
         single_fn=_store_traffic_info,
-        description="存储分析后的交通信息和位置、时间数据，支持多设备数据汇聚。",
+        description="存储分析后的交通信息和位置、时间数据，支持多设备数据汇聚。注意：调用此工具后，你的Final Answer必须包含之前`road_scene_analyzer`生成的Markdown图片和表格，不要只说'已存储'。",
         input_schema=TrafficInfoInput,
     )
 

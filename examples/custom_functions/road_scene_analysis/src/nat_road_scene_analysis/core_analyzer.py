@@ -89,6 +89,30 @@ class CoreRoadSceneAnalyzer:
         try:
             # 加载图片
             image_bytes, mime_type = await load_image_data(image_source)
+            
+            # 检查图片大小，如果过大则压缩
+            if len(image_bytes) > 4 * 1024 * 1024: # 4MB limit
+                try:
+                    if cv2 is not None and np is not None:
+                        nparr = np.frombuffer(image_bytes, np.uint8)
+                        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                        if img is not None:
+                            h, w = img.shape[:2]
+                            scale = 1.0
+                            if max(h, w) > 2048:
+                                scale = 2048 / max(h, w)
+                            
+                            # 总是压缩以减小体积
+                            if scale < 1.0 or len(image_bytes) > 4 * 1024 * 1024:
+                                if scale < 1.0:
+                                    img = cv2.resize(img, (0, 0), fx=scale, fy=scale)
+                                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]
+                                _, buffer = cv2.imencode('.jpg', img, encode_param)
+                                image_bytes = buffer.tobytes()
+                                mime_type = "image/jpeg"
+                except Exception as e:
+                    logger.warning(f"图片压缩失败: {e}")
+
             image_base64 = base64.b64encode(image_bytes).decode("utf-8")
             
             # 构建分析提示词
@@ -231,14 +255,26 @@ class CoreRoadSceneAnalyzer:
                                             # 绘制标签
                                             cv2.putText(img, label, (pt1[0], pt1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
                                 
-                                # Resize if too large to save bandwidth (max width 600)
+                                # 保存标注后的图片到本地
+                                try:
+                                    save_dir = Path("./data/traffic_info")
+                                    save_dir.mkdir(parents=True, exist_ok=True)
+                                    filename = f"annotated_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+                                    save_path = save_dir / filename
+                                    cv2.imwrite(str(save_path), img)
+                                    scene_desc += f"\n\n**本地已保存**: `{save_path.absolute()}`"
+                                except Exception as e:
+                                    logger.error(f"Failed to save annotated image: {e}")
+
+                                # Resize if too large to save bandwidth (max width 480)
                                 h, w = img.shape[:2]
-                                if w > 600:
-                                    scale = 600 / w
+                                target_w = 480
+                                if w > target_w:
+                                    scale = target_w / w
                                     img = cv2.resize(img, (0, 0), fx=scale, fy=scale)
                                 
                                 # Encode with lower quality to reduce size
-                                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 60]
+                                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 50]
                                 _, buffer = cv2.imencode('.jpg', img, encode_param)
                                 img_base64 = base64.b64encode(buffer).decode('utf-8')
                                 scene_desc += f"\n\n![Annotated Image](data:image/jpeg;base64,{img_base64})"
